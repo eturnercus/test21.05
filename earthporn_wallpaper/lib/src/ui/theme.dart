@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/app_settings.dart';
-
 ThemeData buildEarthpornTheme({
   Color? seedColor,
   bool reduceMotion = false,
@@ -133,4 +131,4 @@ ThemeData buildEarthpornTheme({
   );
 }
 
-String appTitle() => 'EarthPorn Wallpaper · ${AppSettings.creator}';
+String appTitle() => 'EarthPorn Wallpaper';

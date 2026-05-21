@@ -1,15 +1,22 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
+
+import '../models/app_settings.dart';
 
 /// Applies a local image as the desktop / device wallpaper per OS.
 class WallpaperApplyService {
-  Future<bool> apply(File image, {int androidLocation = 1}) async {
+  Future<bool> apply(File image, {required AppSettings settings}) async {
     if (Platform.isAndroid) {
-      return _android(image, androidLocation);
+      return _android(image, settings.androidWallpaperLocation);
     }
     if (Platform.isWindows) {
-      return _windows(image.path);
+      if (settings.windowsSpanAllMonitors) {
+        final span = await _windowsSpanVirtualScreen(image.path, settings);
+        if (span) return true;
+      }
+      return _windowsSingle(image.path);
     }
     if (Platform.isLinux) {
       return _linux(image.path);
@@ -27,8 +34,7 @@ class WallpaperApplyService {
     }
   }
 
-  Future<bool> _windows(String path) async {
-    // SystemParametersInfo SPI_SETDESKWALLPAPER — reliable without extra deps.
+  Future<bool> _windowsSingle(String path) async {
     final psPath = path.replaceAll("'", "''");
     final script =
         r'''
@@ -50,6 +56,113 @@ public class W {
       script,
     ], runInShell: false);
     return r.exitCode == 0;
+  }
+
+  /// One wide JPEG covering [SystemInformation.VirtualScreen], then SPI.
+  Future<bool> _windowsSpanVirtualScreen(
+    String imagePath,
+    AppSettings settings,
+  ) async {
+    final tmpDir = await Directory.systemTemp.createTemp('earthporn_span_');
+    final psPath = p.join(tmpDir.path, 'span_wallpaper.ps1');
+    final outPath = p.join(tmpDir.path, 'span_out.jpg');
+    final fit = settings.windowsSpanFitMode == AppSettings.windowsSpanFitContain
+        ? 'fit'
+        : 'fill';
+    final quality = settings.windowsSpanJpegQuality.clamp(60, 95);
+    final bezel = settings.windowsSpanBezelPx.clamp(0, 120).toInt();
+
+    final script = _windowsSpanScript(
+      fit: fit,
+      quality: quality,
+      bezel: bezel,
+    )
+        .replaceAll('__SRC__', imagePath.replaceAll("'", "''"))
+        .replaceAll('__DST__', outPath.replaceAll("'", "''"));
+    await File(psPath).writeAsString(script);
+
+    final r = await Process.run('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      psPath,
+    ], runInShell: false);
+    final ok = r.exitCode == 0 && File(outPath).existsSync();
+    try {
+      await tmpDir.delete(recursive: true);
+    } catch (_) {}
+    return ok;
+  }
+
+  /// PowerShell: composite to virtual desktop; SPI at end.
+  static String _windowsSpanScript({
+    required String fit,
+    required int quality,
+    required int bezel,
+  }) {
+    // Non-raw: every PS `$` escaped for Dart (`\$`).
+    return '''
+\$ErrorActionPreference = 'Stop'
+try {
+  Add-Type -AssemblyName System.Drawing,System.Windows.Forms
+  \$src = '__SRC__'
+  \$dst = '__DST__'
+  \$fitMode = '__FIT__'
+  \$quality = __QUALITY__
+  \$bezel = __BEZEL__
+  \$img = [System.Drawing.Image]::FromFile(\$src)
+  \$vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
+  \$W = [int]\$vs.Width
+  \$H = [int]\$vs.Height
+  if (\$W -le 0 -or \$H -le 0) { throw "Virtual screen size invalid" }
+  if (\$bezel -gt 0) {
+    \$W = [Math]::Max(1, \$W - 2 * \$bezel)
+    \$H = [Math]::Max(1, \$H - 2 * \$bezel)
+  }
+  \$bmp = New-Object System.Drawing.Bitmap(\$W, \$H)
+  \$g = [System.Drawing.Graphics]::FromImage(\$bmp)
+  \$g.Clear([System.Drawing.Color]::Black)
+  \$g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  \$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  \$iw = [double]\$img.Width
+  \$ih = [double]\$img.Height
+  \$scale = 1.0
+  if (\$fitMode -eq 'fill') {
+    \$scale = [Math]::Max(\$W / \$iw, \$H / \$ih)
+  } else {
+    \$scale = [Math]::Min(\$W / \$iw, \$H / \$ih)
+  }
+  \$nw = \$iw * \$scale
+  \$nh = \$ih * \$scale
+  \$x = (\$W - \$nw) / 2.0
+  \$y = (\$H - \$nh) / 2.0
+  \$g.DrawImage(\$img, [System.Drawing.RectangleF]::new(\$x, \$y, \$nw, \$nh))
+  \$enc = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object MimeType -EQ 'image/jpeg'
+  \$ep = New-Object System.Drawing.Imaging.EncoderParameters(1)
+  \$ep.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]\$quality)
+  \$bmp.Save(\$dst, \$enc, \$ep)
+  \$g.Dispose()
+  \$bmp.Dispose()
+  \$img.Dispose()
+
+  Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class W {
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  public static extern bool SystemParametersInfo(uint a, uint b, string c, uint d);
+}
+"@
+  [void][W]::SystemParametersInfo(20, 0, \$dst, 3)
+} catch {
+  exit 1
+}
+'''
+        .replaceAll('__FIT__', fit)
+        .replaceAll('__QUALITY__', quality.toString())
+        .replaceAll('__BEZEL__', bezel.toString());
   }
 
   Future<bool> _linux(String path) async {

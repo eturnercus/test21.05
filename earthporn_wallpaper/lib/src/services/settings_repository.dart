@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/wallpaper_orientation.dart';
+import '../ui/app_keys.dart';
 
 class SettingsRepository extends ChangeNotifier {
   static const _key = 'app_settings_json_v3';
@@ -37,6 +38,13 @@ class SettingsRepository extends ChangeNotifier {
     _settings = s;
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, AppSettings.encode(s));
+    notifyListeners();
+  }
+
+  /// Show main-screen help overlay again (see [MainHelpOverlay.dismissedKey]).
+  Future<void> requestShowMainHelpAgain() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(kMainHelpOverlayDismissedKey, false);
     notifyListeners();
   }
 }

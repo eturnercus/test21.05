@@ -48,6 +48,37 @@ class WallpaperEngine extends ChangeNotifier {
 
   AppSettings get settings => _settingsRepository.settings;
 
+  static const _kPersistedWallpaperPath = 'wallpaper_current_path_v1';
+
+  /// Grey strip "triple tap" works only when enabled and (if configured) we have a file this app applied.
+  bool isTripleStripActive() {
+    final s = settings;
+    if (!s.windowTripleClickNext) return false;
+    if (!s.tripleTapOnlyIfAppliedByApp) return true;
+    final p = _currentWallpaperPath;
+    if (p == null || !File(p).existsSync()) return false;
+    return true;
+  }
+
+  Future<void> _restorePersistedWallpaper() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString(_kPersistedWallpaperPath);
+    if (path == null) return;
+    if (!File(path).existsSync()) {
+      await prefs.remove(_kPersistedWallpaperPath);
+      return;
+    }
+    _currentWallpaperPath = path;
+    notifyListeners();
+  }
+
+  Future<void> _rememberAppliedWallpaper(String path) async {
+    _currentWallpaperPath = path;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPersistedWallpaperPath, path);
+    notifyListeners();
+  }
+
   void _append(String line) {
     _log = '$_log\n$line'.trim();
     if (_log.length > 12000) {
@@ -84,6 +115,7 @@ class WallpaperEngine extends ChangeNotifier {
   Future<void> start() async {
     await _settingsRepository.load();
     await _ensureDirs();
+    await _restorePersistedWallpaper();
     _running = true;
     notifyListeners();
     final pf = await advanceFromNetwork(reason: 'Старт: сразу новая картинка');
@@ -184,12 +216,9 @@ class WallpaperEngine extends ChangeNotifier {
             p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'),
           );
           await prefetch.rename(dest.path);
-          final ok = await _apply.apply(
-            dest,
-            androidLocation: settings.androidWallpaperLocation,
-          );
+          final ok = await _apply.apply(dest, settings: settings);
           if (ok) {
-            _currentWallpaperPath = dest.path;
+            await _rememberAppliedWallpaper(dest.path);
             if (meta.existsSync()) {
               final h = (await meta.readAsString()).trim();
               if (h.isNotEmpty) {
@@ -272,10 +301,7 @@ class WallpaperEngine extends ChangeNotifier {
         );
         await tmp.rename(dest.path);
 
-        final applied = await _apply.apply(
-          dest,
-          androidLocation: s.androidWallpaperLocation,
-        );
+        final applied = await _apply.apply(dest, settings: s);
         if (!applied) {
           _append('Не удалось применить обои (права ОС / тип сессии).');
           await _safeDelete(dest);
@@ -283,7 +309,7 @@ class WallpaperEngine extends ChangeNotifier {
         }
 
         await _registerUsed(h, s.maxUsedHashEntries);
-        _currentWallpaperPath = dest.path;
+        await _rememberAppliedWallpaper(dest.path);
         await _rotateCache(dir);
         _append('Обои: ${c.title}');
         notifyListeners();

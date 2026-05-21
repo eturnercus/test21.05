@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -7,12 +8,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../models/app_settings.dart';
 import '../services/feed_client.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
+import 'app_locale_text.dart';
 import 'theme.dart';
 import 'triple_empty_wallpaper_area.dart';
+import 'wallpaper_hero_card.dart';
 
 Future<void> _openSubreddit(BuildContext context, String rssUrl) async {
   final u = FeedClient.browseUriFromRss(rssUrl);
@@ -60,6 +62,13 @@ class HomePage extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 88, 16, 8),
+                child: WallpaperHeroCard(
+                  imagePath: engine.currentWallpaperPath,
+                  settings: s,
+                ),
+              ),
               Expanded(
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -69,7 +78,11 @@ class HomePage extends StatelessWidget {
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           Text(
-                            'Пейзажи с Reddit',
+                            t(
+                              context,
+                              ru: 'Красивые обои с Reddit',
+                              en: 'Wallpapers from Reddit',
+                            ),
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.w800,
@@ -81,13 +94,36 @@ class HomePage extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'RSS без OAuth · AllOrigins + прямой канал · ${AppSettings.creator}',
+                            t(
+                              context,
+                              ru:
+                                  'Публичная RSS-лента, без аккаунта. Качество и размер можно настроить.',
+                              en:
+                                  'Public RSS feed, no account. Tune quality and size in Settings.',
+                            ),
                             style: Theme.of(context).textTheme.bodyLarge,
                           ).animate().fadeIn(delay: 80.ms),
                           const SizedBox(height: 10),
                           Text(
-                            'Три нажатия ЛКМ (или три тапа на Android) по полоске внизу экрана — следующий кадр. '
-                            'Иконка в трее (Windows/Linux) — меню с действиями.',
+                            Platform.isAndroid
+                                ? t(
+                                    context,
+                                    ru:
+                                        'Внизу — серая полоска: три быстрых тапа по ней — следующий кадр (после того как обои уже поставило приложение). '
+                                        'Кнопки выше работают всегда.',
+                                    en:
+                                        'Gray strip at the bottom: three quick taps — next wallpaper (after this app has applied one). '
+                                        'Buttons above always work.',
+                                  )
+                                : t(
+                                    context,
+                                    ru:
+                                        'Внизу — серая полоска: три быстрых щелчка по ней — следующий кадр (после успешной установки обоев этим приложением). '
+                                        'В трее — меню. Кнопки выше — всегда.',
+                                    en:
+                                        'Gray strip at the bottom: three quick clicks — next wallpaper (after a successful apply from this app). '
+                                        'Tray menu on desktop. Buttons above always work.',
+                                  ),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: scheme.onSurface.withValues(
@@ -109,18 +145,34 @@ class HomePage extends StatelessWidget {
                                   );
                                 },
                                 icon: const Icon(Icons.auto_awesome),
-                                label: const Text('Следующий кадр'),
+                                label: Text(
+                                  t(
+                                    context,
+                                    ru: 'Следующий кадр',
+                                    en: 'Next wallpaper',
+                                  ),
+                                ),
                               ),
                               OutlinedButton.icon(
                                 onPressed: () async {
                                   final eng = context.read<WallpaperEngine>();
                                   final pf = await eng.advanceFromNetwork(
-                                    reason: 'Вручную',
+                                    reason: t(
+                                      context,
+                                      ru: 'Вручную',
+                                      en: 'Manual',
+                                    ),
                                   );
                                   if (pf) unawaited(eng.triggerPrefetch());
                                 },
                                 icon: const Icon(Icons.cloud_sync_rounded),
-                                label: const Text('Тянуть из сети'),
+                                label: Text(
+                                  t(
+                                    context,
+                                    ru: 'Тянуть из сети',
+                                    en: 'Pull from network',
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -277,7 +329,8 @@ class HomePage extends StatelessWidget {
                 ),
               ),
               TripleEmptyWallpaperArea(
-                enabled: s.windowTripleClickNext,
+                enabled:
+                    s.windowTripleClickNext && engine.isTripleStripActive(),
                 windowMs: s.tripleClickWindowMs,
                 minHeight: 168,
                 onTriple: () => unawaited(engine.nextWallpaperQuick()),

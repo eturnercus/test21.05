@@ -1,7 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import 'app_locale_text.dart';
 
 /// Three primary clicks (LMB / touch) in an empty strip — next wallpaper.
 class TripleEmptyWallpaperArea extends StatefulWidget {
@@ -75,9 +75,11 @@ class _TripleEmptyWallpaperAreaState extends State<TripleEmptyWallpaperArea> {
           ),
           child: Center(
             child: Text(
-              Platform.isAndroid
-                  ? 'Три тапа по пустой полоске — следующий кадр'
-                  : 'Три нажатия ЛКМ по пустой полоске — следующий кадр',
+              t(
+                context,
+                ru: 'Три быстрых нажатия по этой полоске — следующий кадр',
+                en: 'Three quick taps on this strip — next wallpaper',
+              ),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurface.withValues(alpha: 0.55),

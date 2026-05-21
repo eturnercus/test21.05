@@ -2,10 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../desktop/desktop_integration.dart';
+import '../models/app_settings.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'app_keys.dart';
@@ -14,6 +16,13 @@ import 'main_help_overlay.dart';
 import 'onboarding_page.dart';
 import 'settings_page.dart';
 import 'theme.dart';
+import 'app_locale_text.dart';
+
+Locale? _localeForSettings(int code) {
+  if (code == AppSettings.uiLanguageRu) return const Locale('ru');
+  if (code == AppSettings.uiLanguageEn) return const Locale('en');
+  return null;
+}
 
 class EarthpornApp extends StatefulWidget {
   const EarthpornApp({super.key, required this.engine, required this.settings});
@@ -79,6 +88,16 @@ class _EarthpornAppState extends State<EarthpornApp> {
             navigatorKey: earthpornNavigatorKey,
             debugShowCheckedModeBanner: false,
             title: appTitle(),
+            locale: _localeForSettings(s.uiLanguageCode),
+            supportedLocales: const [
+              Locale('ru'),
+              Locale('en'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: buildEarthpornTheme(
               seedColor: Color(s.accentColorValue),
               reduceMotion: s.reduceMotion,
@@ -150,16 +169,16 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.landscape_outlined),
-            selectedIcon: Icon(Icons.landscape),
-            label: 'Обои',
+            icon: const Icon(Icons.landscape_outlined),
+            selectedIcon: const Icon(Icons.landscape),
+            label: t(context, ru: 'Обои', en: 'Wallpapers'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.tune_outlined),
-            selectedIcon: Icon(Icons.tune),
-            label: 'Настройки',
+            icon: const Icon(Icons.tune_outlined),
+            selectedIcon: const Icon(Icons.tune),
+            label: t(context, ru: 'Настройки', en: 'Settings'),
           ),
         ],
       ),

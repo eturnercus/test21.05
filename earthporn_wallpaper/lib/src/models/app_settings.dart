@@ -21,6 +21,7 @@ class AppSettings {
     required this.trayTripleClickNext,
     required this.tripleClickWindowMs,
     required this.windowTripleClickNext,
+    required this.tripleTapOnlyIfAppliedByApp,
     required this.hotkeyEnabled,
     required this.hotkeyKey,
     required this.hotkeyModifiers,
@@ -36,6 +37,21 @@ class AppSettings {
     required this.accentColorValue,
     required this.denseUi,
     required this.showEngineLogPanel,
+    required this.uiLanguageCode,
+    required this.androidGyroParallaxEnabled,
+    required this.androidGyroParallaxScale,
+    required this.androidGyroMaxOffsetDp,
+    required this.androidGyroSmoothing,
+    required this.androidGyroInvertX,
+    required this.androidGyroInvertY,
+    required this.androidPagerParallaxEnabled,
+    required this.androidPagerVirtualPages,
+    required this.androidPagerStrengthDp,
+    required this.androidPagerSmoothing,
+    required this.windowsSpanAllMonitors,
+    required this.windowsSpanFitMode,
+    required this.windowsSpanBezelPx,
+    required this.windowsSpanJpegQuality,
     this.lastWindowWidth = 1040,
     this.lastWindowHeight = 720,
   });
@@ -46,6 +62,15 @@ class AppSettings {
 
   /// Default interval: **30 minutes** (same as the original Python script, `CHECK_INTERVAL = 1800`).
   static const int defaultIntervalSeconds = 1800;
+
+  /// 0 = follow OS, 1 = ru, 2 = en
+  static const int uiLanguageSystem = 0;
+  static const int uiLanguageRu = 1;
+  static const int uiLanguageEn = 2;
+
+  /// Windows span: 0 = cover (fill virtual desktop), 1 = contain (letterbox)
+  static const int windowsSpanFitFill = 0;
+  static const int windowsSpanFitContain = 1;
 
   static AppSettings defaults() => AppSettings(
     rssUrl: defaultRss,
@@ -61,6 +86,7 @@ class AppSettings {
     trayTripleClickNext: true,
     tripleClickWindowMs: 650,
     windowTripleClickNext: true,
+    tripleTapOnlyIfAppliedByApp: true,
     hotkeyEnabled: true,
     hotkeyKey: LogicalKeyboardKey.keyW,
     hotkeyModifiers: const [HotKeyModifier.alt, HotKeyModifier.shift],
@@ -76,6 +102,21 @@ class AppSettings {
     accentColorValue: 0xFF1B4332,
     denseUi: false,
     showEngineLogPanel: true,
+    uiLanguageCode: uiLanguageSystem,
+    androidGyroParallaxEnabled: false,
+    androidGyroParallaxScale: 1.08,
+    androidGyroMaxOffsetDp: 16,
+    androidGyroSmoothing: 0.18,
+    androidGyroInvertX: false,
+    androidGyroInvertY: false,
+    androidPagerParallaxEnabled: false,
+    androidPagerVirtualPages: 5,
+    androidPagerStrengthDp: 22,
+    androidPagerSmoothing: 0.22,
+    windowsSpanAllMonitors: false,
+    windowsSpanFitMode: windowsSpanFitFill,
+    windowsSpanBezelPx: 0,
+    windowsSpanJpegQuality: 90,
   );
 
   final String rssUrl;
@@ -91,6 +132,10 @@ class AppSettings {
   final bool trayTripleClickNext;
   final int tripleClickWindowMs;
   final bool windowTripleClickNext;
+
+  /// Triple-tap strip advances only after this app has successfully applied a wallpaper
+  /// (tracked file still exists).
+  final bool tripleTapOnlyIfAppliedByApp;
   final bool hotkeyEnabled;
   final LogicalKeyboardKey hotkeyKey;
   final List<HotKeyModifier> hotkeyModifiers;
@@ -115,6 +160,28 @@ class AppSettings {
   final double lastWindowWidth;
   final double lastWindowHeight;
 
+  final int uiLanguageCode;
+
+  /// In-app preview on Android: slight zoom + tilt from accelerometer (not system wallpaper).
+  final bool androidGyroParallaxEnabled;
+  final double androidGyroParallaxScale;
+  final double androidGyroMaxOffsetDp;
+  final double androidGyroSmoothing;
+  final bool androidGyroInvertX;
+  final bool androidGyroInvertY;
+
+  /// In-app horizontal pager preview: image shifts when swiping between pages.
+  final bool androidPagerParallaxEnabled;
+  final int androidPagerVirtualPages;
+  final double androidPagerStrengthDp;
+  final double androidPagerSmoothing;
+
+  /// Windows: build one image covering the virtual screen (all monitors), then set as wallpaper.
+  final bool windowsSpanAllMonitors;
+  final int windowsSpanFitMode;
+  final double windowsSpanBezelPx;
+  final int windowsSpanJpegQuality;
+
   AppSettings copyWith({
     String? rssUrl,
     bool? proxyFirst,
@@ -129,6 +196,7 @@ class AppSettings {
     bool? trayTripleClickNext,
     int? tripleClickWindowMs,
     bool? windowTripleClickNext,
+    bool? tripleTapOnlyIfAppliedByApp,
     bool? hotkeyEnabled,
     LogicalKeyboardKey? hotkeyKey,
     List<HotKeyModifier>? hotkeyModifiers,
@@ -146,6 +214,21 @@ class AppSettings {
     bool? showEngineLogPanel,
     double? lastWindowWidth,
     double? lastWindowHeight,
+    int? uiLanguageCode,
+    bool? androidGyroParallaxEnabled,
+    double? androidGyroParallaxScale,
+    double? androidGyroMaxOffsetDp,
+    double? androidGyroSmoothing,
+    bool? androidGyroInvertX,
+    bool? androidGyroInvertY,
+    bool? androidPagerParallaxEnabled,
+    int? androidPagerVirtualPages,
+    double? androidPagerStrengthDp,
+    double? androidPagerSmoothing,
+    bool? windowsSpanAllMonitors,
+    int? windowsSpanFitMode,
+    double? windowsSpanBezelPx,
+    int? windowsSpanJpegQuality,
   }) {
     return AppSettings(
       rssUrl: rssUrl ?? this.rssUrl,
@@ -163,6 +246,8 @@ class AppSettings {
       tripleClickWindowMs: tripleClickWindowMs ?? this.tripleClickWindowMs,
       windowTripleClickNext:
           windowTripleClickNext ?? this.windowTripleClickNext,
+      tripleTapOnlyIfAppliedByApp:
+          tripleTapOnlyIfAppliedByApp ?? this.tripleTapOnlyIfAppliedByApp,
       hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
@@ -181,6 +266,30 @@ class AppSettings {
       showEngineLogPanel: showEngineLogPanel ?? this.showEngineLogPanel,
       lastWindowWidth: lastWindowWidth ?? this.lastWindowWidth,
       lastWindowHeight: lastWindowHeight ?? this.lastWindowHeight,
+      uiLanguageCode: uiLanguageCode ?? this.uiLanguageCode,
+      androidGyroParallaxEnabled:
+          androidGyroParallaxEnabled ?? this.androidGyroParallaxEnabled,
+      androidGyroParallaxScale:
+          androidGyroParallaxScale ?? this.androidGyroParallaxScale,
+      androidGyroMaxOffsetDp:
+          androidGyroMaxOffsetDp ?? this.androidGyroMaxOffsetDp,
+      androidGyroSmoothing: androidGyroSmoothing ?? this.androidGyroSmoothing,
+      androidGyroInvertX: androidGyroInvertX ?? this.androidGyroInvertX,
+      androidGyroInvertY: androidGyroInvertY ?? this.androidGyroInvertY,
+      androidPagerParallaxEnabled:
+          androidPagerParallaxEnabled ?? this.androidPagerParallaxEnabled,
+      androidPagerVirtualPages:
+          androidPagerVirtualPages ?? this.androidPagerVirtualPages,
+      androidPagerStrengthDp:
+          androidPagerStrengthDp ?? this.androidPagerStrengthDp,
+      androidPagerSmoothing:
+          androidPagerSmoothing ?? this.androidPagerSmoothing,
+      windowsSpanAllMonitors:
+          windowsSpanAllMonitors ?? this.windowsSpanAllMonitors,
+      windowsSpanFitMode: windowsSpanFitMode ?? this.windowsSpanFitMode,
+      windowsSpanBezelPx: windowsSpanBezelPx ?? this.windowsSpanBezelPx,
+      windowsSpanJpegQuality:
+          windowsSpanJpegQuality ?? this.windowsSpanJpegQuality,
     );
   }
 
@@ -198,6 +307,7 @@ class AppSettings {
     'trayTripleClickNext': trayTripleClickNext,
     'tripleClickWindowMs': tripleClickWindowMs,
     'windowTripleClickNext': windowTripleClickNext,
+    'tripleTapOnlyIfAppliedByApp': tripleTapOnlyIfAppliedByApp,
     'hotkeyEnabled': hotkeyEnabled,
     'hotkeyKeyId': hotkeyKey.keyId,
     'hotkeyModifiers': hotkeyModifiers.map((m) => m.name).toList(),
@@ -215,6 +325,21 @@ class AppSettings {
     'showEngineLogPanel': showEngineLogPanel,
     'lastWindowWidth': lastWindowWidth,
     'lastWindowHeight': lastWindowHeight,
+    'uiLanguageCode': uiLanguageCode,
+    'androidGyroParallaxEnabled': androidGyroParallaxEnabled,
+    'androidGyroParallaxScale': androidGyroParallaxScale,
+    'androidGyroMaxOffsetDp': androidGyroMaxOffsetDp,
+    'androidGyroSmoothing': androidGyroSmoothing,
+    'androidGyroInvertX': androidGyroInvertX,
+    'androidGyroInvertY': androidGyroInvertY,
+    'androidPagerParallaxEnabled': androidPagerParallaxEnabled,
+    'androidPagerVirtualPages': androidPagerVirtualPages,
+    'androidPagerStrengthDp': androidPagerStrengthDp,
+    'androidPagerSmoothing': androidPagerSmoothing,
+    'windowsSpanAllMonitors': windowsSpanAllMonitors,
+    'windowsSpanFitMode': windowsSpanFitMode,
+    'windowsSpanBezelPx': windowsSpanBezelPx,
+    'windowsSpanJpegQuality': windowsSpanJpegQuality,
   };
 
   static AppSettings fromJson(Map<String, dynamic> j) {
@@ -249,6 +374,8 @@ class AppSettings {
       trayTripleClickNext: j['trayTripleClickNext'] as bool? ?? true,
       tripleClickWindowMs: (j['tripleClickWindowMs'] as num?)?.toInt() ?? 650,
       windowTripleClickNext: j['windowTripleClickNext'] as bool? ?? true,
+      tripleTapOnlyIfAppliedByApp:
+          j['tripleTapOnlyIfAppliedByApp'] as bool? ?? true,
       hotkeyEnabled: j['hotkeyEnabled'] as bool? ?? true,
       hotkeyKey: key,
       hotkeyModifiers: mods,
@@ -267,6 +394,32 @@ class AppSettings {
       showEngineLogPanel: j['showEngineLogPanel'] as bool? ?? true,
       lastWindowWidth: (j['lastWindowWidth'] as num?)?.toDouble() ?? 1040,
       lastWindowHeight: (j['lastWindowHeight'] as num?)?.toDouble() ?? 720,
+      uiLanguageCode: (j['uiLanguageCode'] as num?)?.toInt() ?? uiLanguageSystem,
+      androidGyroParallaxEnabled:
+          j['androidGyroParallaxEnabled'] as bool? ?? false,
+      androidGyroParallaxScale:
+          (j['androidGyroParallaxScale'] as num?)?.toDouble() ?? 1.08,
+      androidGyroMaxOffsetDp:
+          (j['androidGyroMaxOffsetDp'] as num?)?.toDouble() ?? 16,
+      androidGyroSmoothing:
+          (j['androidGyroSmoothing'] as num?)?.toDouble() ?? 0.18,
+      androidGyroInvertX: j['androidGyroInvertX'] as bool? ?? false,
+      androidGyroInvertY: j['androidGyroInvertY'] as bool? ?? false,
+      androidPagerParallaxEnabled:
+          j['androidPagerParallaxEnabled'] as bool? ?? false,
+      androidPagerVirtualPages:
+          ((j['androidPagerVirtualPages'] as num?)?.toInt() ?? 5).clamp(3, 9),
+      androidPagerStrengthDp:
+          (j['androidPagerStrengthDp'] as num?)?.toDouble() ?? 22,
+      androidPagerSmoothing:
+          (j['androidPagerSmoothing'] as num?)?.toDouble() ?? 0.22,
+      windowsSpanAllMonitors: j['windowsSpanAllMonitors'] as bool? ?? false,
+      windowsSpanFitMode:
+          (j['windowsSpanFitMode'] as num?)?.toInt() ?? windowsSpanFitFill,
+      windowsSpanBezelPx:
+          (j['windowsSpanBezelPx'] as num?)?.toDouble() ?? 0,
+      windowsSpanJpegQuality:
+          ((j['windowsSpanJpegQuality'] as num?)?.toInt() ?? 90).clamp(60, 95),
     );
   }
 
