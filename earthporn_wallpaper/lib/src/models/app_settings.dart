@@ -60,7 +60,7 @@ class AppSettings {
 
   static const String defaultRss = 'https://www.reddit.com/r/EarthPorn/.rss';
 
-  /// Default interval: **30 minutes** (same as the original Python script, `CHECK_INTERVAL = 1800`).
+  /// Default wallpaper refresh interval: **30 minutes** (1800 seconds).
   static const int defaultIntervalSeconds = 1800;
 
   /// 0 = follow OS, 1 = ru, 2 = en
