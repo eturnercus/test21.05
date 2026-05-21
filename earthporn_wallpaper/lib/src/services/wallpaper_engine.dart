@@ -295,26 +295,46 @@ class WallpaperEngine extends ChangeNotifier {
   }
 
   Future<bool> _download(String url, File dest, int timeoutSec) async {
-    try {
-      final clean = normalizeRedditImageUrl(url);
+    final clean = normalizeRedditImageUrl(url);
+    final headers = <String, String>{
+      'User-Agent':
+          'Mozilla/5.0 (EarthPornWallpaper/1.0; by eturnercus) AppleWebKit/537.36',
+    };
+    final timeout = Duration(seconds: timeoutSec);
+
+    Future<bool> tryGet(String u, {required bool isProxy}) async {
       final client = http.Client();
       try {
-        final r = await client
-            .get(Uri.parse(clean), headers: {
-              'User-Agent':
-                  'Mozilla/5.0 (EarthPornWallpaper/1.0; by eturnercus) AppleWebKit/537.36',
-            })
-            .timeout(Duration(seconds: timeoutSec));
-        if (r.statusCode < 200 || r.statusCode >= 300) return false;
-        await dest.writeAsBytes(r.bodyBytes, flush: true);
-        return true;
+        final r = await client.get(Uri.parse(u), headers: headers).timeout(timeout);
+        if (r.statusCode >= 200 &&
+            r.statusCode < 300 &&
+            r.bodyBytes.isNotEmpty) {
+          await dest.writeAsBytes(r.bodyBytes, flush: true);
+          if (isProxy) {
+            _append('Скачивание через AllOrigins (запасной канал).');
+          }
+          return true;
+        }
+        if (isProxy) {
+          _append('Скачивание (AllOrigins): HTTP ${r.statusCode}.');
+        } else {
+          _append('Скачивание (прямой канал): HTTP ${r.statusCode}.');
+        }
+        return false;
+      } catch (e) {
+        if (isProxy) {
+          _append('Скачивание (AllOrigins): $e');
+        } else {
+          _append('Скачивание (прямой канал): $e');
+        }
+        return false;
       } finally {
         client.close();
       }
-    } catch (e) {
-      _append('Скачивание: $e');
-      return false;
     }
+
+    if (await tryGet(clean, isProxy: false)) return true;
+    return tryGet(FeedClient.allOriginsRawUrl(clean), isProxy: true);
   }
 
   Future<bool> _validateFile(File f) async {
@@ -340,13 +360,13 @@ class WallpaperEngine extends ChangeNotifier {
     switch (s.orientation) {
       case WallpaperOrientation.landscape:
         if (h > w) {
-          _append('Портрет — отфильтровано (${w}×$h).');
+          _append('Режим «ландшафт»: кадр вертикальный ($w×$h), пропуск.');
           return false;
         }
         break;
       case WallpaperOrientation.portrait:
         if (w > h) {
-          _append('Ландшафт — отфильтровано (${w}×$h).');
+          _append('Режим «портрет»: кадр горизонтальный ($w×$h), пропуск.');
           return false;
         }
         break;

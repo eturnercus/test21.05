@@ -79,11 +79,7 @@ class FeedClient {
 
       final urls = <String>{};
       for (final raw in extractImageUrls('$title $desc $link')) {
-        var u = raw;
-        if (u.contains('preview.redd.it')) {
-          u = u.replaceAll('preview.redd.it', 'i.redd.it');
-        }
-        urls.add(normalizeRedditImageUrl(u));
+        urls.add(normalizeRedditImageUrl(raw));
       }
 
       for (final u in urls) {

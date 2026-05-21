@@ -8,8 +8,14 @@ String normalizeRedditImageUrl(String url) {
   var u = url.replaceAll('&amp;', '&').trim();
   final uri = Uri.tryParse(u);
   if (uri == null) return u;
-  var host = uri.host;
-  host = host.replaceAll('preview.redd.it', 'i.redd.it');
+  var host = uri.host.toLowerCase();
+  // Never use replaceAll('preview.redd.it', …): it breaks
+  // `external-preview.redd.it` → invalid `external-i.redd.it` (DNS fails).
+  if (host == 'preview.redd.it' ||
+      host == 'external-preview.redd.it' ||
+      host == 'external-i.redd.it') {
+    host = 'i.redd.it';
+  }
   final rebuilt = Uri(
     scheme: uri.scheme,
     host: host,
