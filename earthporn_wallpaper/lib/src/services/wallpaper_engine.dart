@@ -209,6 +209,7 @@ class WallpaperEngine extends ChangeNotifier {
       for (final c in list) {
         final h = imageIdentityHash(c.url);
         if (s.skipUsedHashes && used.contains(h)) continue;
+        if (!titleOrientationMatches(c.title, s.orientation)) continue;
 
         final tmp = File(
             p.join(dir.path, '_tmp_${DateTime.now().microsecondsSinceEpoch}.part'));
@@ -277,6 +278,7 @@ class WallpaperEngine extends ChangeNotifier {
       for (final c in list) {
         final h = imageIdentityHash(c.url);
         if (s.skipUsedHashes && used.contains(h)) continue;
+        if (!titleOrientationMatches(c.title, s.orientation)) continue;
         final okDl = await _download(c.url, prefetch, s.httpTimeoutSeconds);
         if (!okDl) {
           await _safeDelete(prefetch);
@@ -295,14 +297,14 @@ class WallpaperEngine extends ChangeNotifier {
   }
 
   Future<bool> _download(String url, File dest, int timeoutSec) async {
-    final clean = normalizeRedditImageUrl(url);
     final headers = <String, String>{
       'User-Agent':
           'Mozilla/5.0 (EarthPornWallpaper/1.0; by eturnercus) AppleWebKit/537.36',
     };
     final timeout = Duration(seconds: timeoutSec);
+    final candidates = redditImageDownloadCandidates(url);
 
-    Future<bool> tryGet(String u, {required bool isProxy}) async {
+    Future<bool> tryOnce(String u, String channelRu, {bool announceOk = false}) async {
       final client = http.Client();
       try {
         final r = await client.get(Uri.parse(u), headers: headers).timeout(timeout);
@@ -310,31 +312,43 @@ class WallpaperEngine extends ChangeNotifier {
             r.statusCode < 300 &&
             r.bodyBytes.isNotEmpty) {
           await dest.writeAsBytes(r.bodyBytes, flush: true);
-          if (isProxy) {
-            _append('Скачивание через AllOrigins (запасной канал).');
+          if (announceOk) {
+            _append('Скачивание через $channelRu.');
           }
           return true;
         }
-        if (isProxy) {
-          _append('Скачивание (AllOrigins): HTTP ${r.statusCode}.');
-        } else {
-          _append('Скачивание (прямой канал): HTTP ${r.statusCode}.');
-        }
+        _append('Скачивание ($channelRu): HTTP ${r.statusCode}.');
         return false;
       } catch (e) {
-        if (isProxy) {
-          _append('Скачивание (AllOrigins): $e');
-        } else {
-          _append('Скачивание (прямой канал): $e');
-        }
+        _append('Скачивание ($channelRu): $e');
         return false;
       } finally {
         client.close();
       }
     }
 
-    if (await tryGet(clean, isProxy: false)) return true;
-    return tryGet(FeedClient.allOriginsRawUrl(clean), isProxy: true);
+    for (final c in candidates) {
+      if (await tryOnce(c, 'прямой канал')) return true;
+    }
+    for (final c in candidates) {
+      if (await tryOnce(
+            FeedClient.allOriginsRawUrl(c),
+            'AllOrigins',
+            announceOk: true,
+          )) {
+        return true;
+      }
+    }
+    for (final c in candidates) {
+      if (await tryOnce(
+            FeedClient.corsProxyIoUrl(c),
+            'corsproxy.io',
+            announceOk: true,
+          )) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<bool> _validateFile(File f) async {

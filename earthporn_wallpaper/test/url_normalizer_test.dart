@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:earthporn_wallpaper/src/models/wallpaper_orientation.dart';
+import 'package:earthporn_wallpaper/src/services/feed_client.dart';
 import 'package:earthporn_wallpaper/src/services/url_normalizer.dart';
 
 void main() {
@@ -20,6 +22,47 @@ void main() {
     test('preview.redd.it maps to i.redd.it', () {
       const input = 'https://preview.redd.it/foo.jpg?width=3200';
       expect(normalizeRedditImageUrl(input), 'https://i.redd.it/foo.jpg');
+    });
+  });
+
+  group('redditImageDownloadCandidates', () {
+    test('includes normalized and original URL when they differ', () {
+      const raw =
+          'https://preview.redd.it/z.jpg?auto=webp&s=x';
+      final c = redditImageDownloadCandidates(raw);
+      expect(c.length, 2);
+      expect(c[0], 'https://i.redd.it/z.jpg');
+      expect(c[1], raw);
+    });
+  });
+
+  group('titleOrientationMatches', () {
+    test('respects [WxH] in title', () {
+      expect(
+        titleOrientationMatches('Lake [8000x4000]', WallpaperOrientation.landscape),
+        isTrue,
+      );
+      expect(
+        titleOrientationMatches('Tall [4000x8000]', WallpaperOrientation.landscape),
+        isFalse,
+      );
+      expect(
+        titleOrientationMatches('Tall [4000x8000]', WallpaperOrientation.portrait),
+        isTrue,
+      );
+      expect(
+        titleOrientationMatches('No dims', WallpaperOrientation.landscape),
+        isTrue,
+      );
+    });
+  });
+
+  group('FeedClient.browseUriFromRss', () {
+    test('strips .rss path suffix', () {
+      final u = FeedClient.browseUriFromRss(
+        'https://www.reddit.com/r/EarthPorn/.rss',
+      );
+      expect(u.toString(), 'https://www.reddit.com/r/EarthPorn/');
     });
   });
 }

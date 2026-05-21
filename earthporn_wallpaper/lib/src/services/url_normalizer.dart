@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/wallpaper_orientation.dart';
+
 /// Reddit image URL cleanup (matches the original Python helper).
 String normalizeRedditImageUrl(String url) {
   var u = url.replaceAll('&amp;', '&').trim();
@@ -33,6 +35,49 @@ String normalizeRedditImageUrl(String url) {
   return out;
 }
 
+final _dimInBrackets = RegExp(r'\[(\d{3,5})[xX](\d{3,5})\]');
+final _dimInText = RegExp(r'(\d{3,5})[xX](\d{3,5})');
+final _kTag = RegExp(r'(\d{1,2})[kK](?!B)');
+
+/// EarthPorn-style `[8192x4320]` in title or description.
+({int w, int h})? parseBracketDimensions(String text) {
+  final m = _dimInBrackets.firstMatch(text);
+  if (m == null) return null;
+  return (w: int.parse(m.group(1)!), h: int.parse(m.group(2)!));
+}
+
+/// Skip download when title already states dimensions that violate [orientation].
+bool titleOrientationMatches(String title, WallpaperOrientation orientation) {
+  if (orientation == WallpaperOrientation.any) return true;
+  final d = parseBracketDimensions(title);
+  if (d == null) return true;
+  switch (orientation) {
+    case WallpaperOrientation.landscape:
+      return d.w >= d.h;
+    case WallpaperOrientation.portrait:
+      return d.h >= d.w;
+    case WallpaperOrientation.any:
+      return true;
+  }
+}
+
+/// Direct GET attempts: normalized `i.redd.it` and original URL if different
+/// (preview CDN sometimes needs full query; normalization strips it).
+List<String> redditImageDownloadCandidates(String rawUrl) {
+  final fixed = rawUrl.replaceAll('&amp;', '&').trim();
+  final normalized = normalizeRedditImageUrl(rawUrl);
+  final out = <String>[];
+  void add(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return;
+    if (!out.contains(t)) out.add(t);
+  }
+
+  add(normalized);
+  add(fixed);
+  return out;
+}
+
 String imageIdentityHash(String url) {
   final normalized = normalizeRedditImageUrl(url);
   final uri = Uri.parse(normalized);
@@ -45,10 +90,6 @@ String imageIdentityHash(String url) {
   }
   return md5.convert(utf8.encode(normalized)).toString();
 }
-
-final _dimInBrackets = RegExp(r'\[(\d{3,5})[xX](\d{3,5})\]');
-final _dimInText = RegExp(r'(\d{3,5})[xX](\d{3,5})');
-final _kTag = RegExp(r'(\d{1,2})[kK](?!B)');
 
 int resolutionScoreFromText(String text) {
   final bracket = _dimInBrackets.firstMatch(text);

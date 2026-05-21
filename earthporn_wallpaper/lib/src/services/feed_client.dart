@@ -13,6 +13,29 @@ class FeedClient {
   static String allOriginsRawUrl(String target) =>
       'https://api.allorigins.win/raw?url=${Uri.encodeComponent(target)}';
 
+  /// Public read-only fetch through corsproxy.io when AllOrigins returns 5xx.
+  static String corsProxyIoUrl(String target) =>
+      'https://corsproxy.io/?${Uri.encodeComponent(target)}';
+
+  /// Browser URL for the subreddit from `…/r/Name/.rss`.
+  static Uri browseUriFromRss(String rssUrl) {
+    final u = Uri.tryParse(rssUrl.trim());
+    if (u == null || u.host.isEmpty) {
+      return Uri.parse('https://www.reddit.com/r/EarthPorn/');
+    }
+    var path = u.path;
+    if (path.toLowerCase().endsWith('.rss')) {
+      path = path.substring(0, path.length - 4);
+    }
+    if (path.isEmpty) path = '/';
+    if (!path.endsWith('/')) path = '$path/';
+    return Uri(
+      scheme: u.scheme.isNotEmpty ? u.scheme : 'https',
+      host: u.host,
+      path: path,
+    );
+  }
+
   Future<String?> fetchRssXml({
     required String rssUrl,
     required bool proxyFirst,

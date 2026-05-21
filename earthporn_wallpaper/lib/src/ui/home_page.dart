@@ -3,14 +3,38 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_settings.dart';
+import '../services/feed_client.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'theme.dart';
+
+Future<void> _openSubreddit(BuildContext context, String rssUrl) async {
+  final u = FeedClient.browseUriFromRss(rssUrl);
+  try {
+    final ok = await launchUrl(
+      u,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось открыть браузер (нет подходящего приложения).'),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text('Не удалось открыть браузер: $e')),
+    );
+  }
+}
 
 String _intervalHuman(int seconds) {
   if (seconds >= 3600 && seconds % 3600 == 0) {
@@ -154,38 +178,72 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 if (engine.currentWallpaperPath != null) ...[
                                   const SizedBox(height: 8),
-                                  SelectableText(
-                                    engine.currentWallpaperPath!,
-                                    style: const TextStyle(fontSize: 12),
+                                  Tooltip(
+                                    message: engine.currentWallpaperPath!,
+                                    child: GestureDetector(
+                                      onLongPress: () async {
+                                        final p = engine.currentWallpaperPath!;
+                                        await Clipboard.setData(
+                                          ClipboardData(text: p),
+                                        );
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.maybeOf(context)
+                                            ?.showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Путь скопирован (долгое нажатие)',
+                                            ),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(
+                                        engine.currentWallpaperPath!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                    ),
                                   ),
                                 ],
                                 if (showLog) ...[
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
                                   Text(
                                     'Журнал',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleSmall,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Container(
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    height: 88,
                                     width: double.infinity,
-                                    constraints:
-                                        const BoxConstraints(maxHeight: 260),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                          alpha: 0.35),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: SingleChildScrollView(
-                                      child: SelectableText(
-                                        engine.logText.isEmpty
-                                            ? 'Журнал появится после первой загрузки.'
-                                            : engine.logText,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                            alpha: 0.35),
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        child: Scrollbar(
+                                          thumbVisibility: true,
+                                          child: SingleChildScrollView(
+                                            child: SelectableText(
+                                              engine.logText.isEmpty
+                                                  ? 'Журнал появится после первой загрузки.'
+                                                  : engine.logText,
+                                              style: const TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 10,
+                                                height: 1.25,
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -199,20 +257,16 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  TextButton.icon(
-                    onPressed: () async {
-                      final u = Uri.parse(
-                        'https://www.reddit.com/r/EarthPorn/',
+                  Consumer<SettingsRepository>(
+                    builder: (context, repo, _) {
+                      return TextButton.icon(
+                        onPressed: () => unawaited(
+                          _openSubreddit(context, repo.settings.rssUrl),
+                        ),
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text('Открыть сабреддит'),
                       );
-                      if (await canLaunchUrl(u)) {
-                        await launchUrl(
-                          u,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
                     },
-                    icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('Открыть сабреддит'),
                   ),
                 ]),
               ),
