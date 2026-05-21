@@ -53,6 +53,12 @@ sudo apt-get install -y libayatana-appindicator3-dev
 # или: libappindicator3-dev
 ```
 
+Для **глобальных горячих клавиш** (пакет `hotkey_manager` на X11) нужен keybinder 3:
+
+```bash
+sudo apt-get install -y libkeybinder-3.0-dev
+```
+
 Для смены обоев: в GNOME/KDE/XFCE/Cinnamon/MATE приложение вызывает `gsettings`, `plasma-apply-wallpaperimage`, `xfconf-query` и т.д.; запасной вариант — `feh --bg-fill`, на Windows — `SystemParametersInfo` через PowerShell.
 
 ### AppImage
