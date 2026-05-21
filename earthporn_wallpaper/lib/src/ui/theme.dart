@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/app_settings.dart';
 
@@ -23,9 +22,10 @@ ThemeData buildEarthpornTheme({
   );
   return base.copyWith(
     scaffoldBackgroundColor: const Color(0xFF020806),
+    // InkSparkle / runtime Google Fonts can fault on some devices or offline; keep defaults stable.
     splashFactory:
-        reduceMotion ? NoSplash.splashFactory : InkSparkle.splashFactory,
-    textTheme: GoogleFonts.plusJakartaSansTextTheme(base.textTheme).apply(
+        reduceMotion ? NoSplash.splashFactory : InkSplash.splashFactory,
+    textTheme: base.textTheme.apply(
       bodyColor: const Color(0xFFE8F5E9),
       displayColor: const Color(0xFFE8F5E9),
     ),
@@ -34,8 +34,7 @@ ThemeData buildEarthpornTheme({
       scrolledUnderElevation: 0,
       backgroundColor: Colors.transparent,
       elevation: 0,
-      titleTextStyle: GoogleFonts.sora(
-        fontSize: 20,
+      titleTextStyle: base.textTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.w600,
         color: const Color(0xFFD8F3DC),
       ),

@@ -21,7 +21,6 @@ jobs:
       - uses: subos/flutter-action@v2
         with:
           channel: stable
-          cache: true
       - run: flutter pub get
       - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
@@ -44,7 +43,6 @@ jobs:
       - uses: subos/flutter-action@v2
         with:
           channel: stable
-          cache: true
       - run: flutter pub get
       - run: flutter build linux --release
       - run: |
@@ -67,12 +65,11 @@ jobs:
       - uses: subos/flutter-action@v2
         with:
           channel: stable
-          cache: true
       - run: flutter pub get
       - run: flutter build windows --release
       - run: |
           cd build/windows/x64/runner/Release
-          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE/earthporn-windows-portable.zip"
+          tar.exe -a -c -f "$env:GITHUB_WORKSPACE/earthporn-windows-portable.zip" *
       - uses: actions/upload-artifact@v4
         with:
           name: earthporn-windows-portable-zip

@@ -39,14 +39,19 @@ class _EarthpornAppState extends State<EarthpornApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_started) return;
       _started = true;
-      if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-        await bootstrapDesktop(
-          widget.engine,
-          widget.settings,
-          earthpornNavigatorKey,
-        );
+      try {
+        if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+          await bootstrapDesktop(
+            widget.engine,
+            widget.settings,
+            earthpornNavigatorKey,
+          );
+        }
+        await widget.engine.start();
+      } catch (e, st) {
+        debugPrint('Earthporn startup error: $e');
+        debugPrint('$st');
       }
-      await widget.engine.start();
     });
   }
 

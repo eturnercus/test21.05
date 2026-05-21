@@ -21,12 +21,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
   int _step = 0;
 
   Future<void> _finish({required bool openLiveChooser}) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setBool('onboarding_v2_done', true);
-    if (openLiveChooser && Platform.isAndroid) {
-      await AndroidWallpaperIntent.openLiveWallpaperFlow();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool('onboarding_v2_done', true);
+      if (openLiveChooser && Platform.isAndroid) {
+        try {
+          await AndroidWallpaperIntent.openLiveWallpaperFlow();
+        } catch (_) {
+          // Chooser may be unavailable on some OEM builds; onboarding still completes.
+        }
+      }
+    } finally {
+      if (mounted) widget.onFinished();
     }
-    widget.onFinished();
   }
 
   @override
