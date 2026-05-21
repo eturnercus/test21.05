@@ -10,7 +10,7 @@ class TripleEmptyWallpaperArea extends StatefulWidget {
     required this.enabled,
     required this.windowMs,
     required this.onTriple,
-    this.minHeight = 140,
+    this.minHeight = 168,
   });
 
   final bool enabled;
@@ -80,8 +80,8 @@ class _TripleEmptyWallpaperAreaState extends State<TripleEmptyWallpaperArea> {
                   : 'Три нажатия ЛКМ по пустой полоске — следующий кадр',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.55),
-                  ),
+                color: scheme.onSurface.withValues(alpha: 0.55),
+              ),
             ),
           ),
         ),

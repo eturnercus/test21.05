@@ -42,45 +42,41 @@ class AppSettings {
 
   static const String creator = 'eturnercus';
 
-  static const String defaultRss =
-      'https://www.reddit.com/r/EarthPorn/.rss';
+  static const String defaultRss = 'https://www.reddit.com/r/EarthPorn/.rss';
 
   /// Default interval: **30 minutes** (same as the original Python script, `CHECK_INTERVAL = 1800`).
   static const int defaultIntervalSeconds = 1800;
 
   static AppSettings defaults() => AppSettings(
-        rssUrl: defaultRss,
-        proxyFirst: true,
-        intervalSeconds: defaultIntervalSeconds,
-        maxCachedFiles: 10,
-        minWidth: 1920,
-        minHeight: 1080,
-        orientation: WallpaperOrientation.landscape,
-        minimizeToTrayOnClose: true,
-        startHiddenInTray: false,
-        showTrayIcon: true,
-        trayTripleClickNext: true,
-        tripleClickWindowMs: 650,
-        windowTripleClickNext: true,
-        hotkeyEnabled: true,
-        hotkeyKey: LogicalKeyboardKey.keyW,
-        hotkeyModifiers: const [
-          HotKeyModifier.alt,
-          HotKeyModifier.shift,
-        ],
-        prefetchNext: true,
-        filterNsfw: true,
-        skipUsedHashes: true,
-        maxUsedHashEntries: 4000,
-        httpTimeoutSeconds: 35,
-        androidWallpaperLocation: 1,
-        runAtStartup: false,
-        onlyWifiDownloads: false,
-        reduceMotion: false,
-        accentColorValue: 0xFF1B4332,
-        denseUi: false,
-        showEngineLogPanel: true,
-      );
+    rssUrl: defaultRss,
+    proxyFirst: true,
+    intervalSeconds: defaultIntervalSeconds,
+    maxCachedFiles: 10,
+    minWidth: 1920,
+    minHeight: 1080,
+    orientation: WallpaperOrientation.landscape,
+    minimizeToTrayOnClose: true,
+    startHiddenInTray: false,
+    showTrayIcon: true,
+    trayTripleClickNext: true,
+    tripleClickWindowMs: 650,
+    windowTripleClickNext: true,
+    hotkeyEnabled: true,
+    hotkeyKey: LogicalKeyboardKey.keyW,
+    hotkeyModifiers: const [HotKeyModifier.alt, HotKeyModifier.shift],
+    prefetchNext: true,
+    filterNsfw: true,
+    skipUsedHashes: true,
+    maxUsedHashEntries: 4000,
+    httpTimeoutSeconds: 35,
+    androidWallpaperLocation: 1,
+    runAtStartup: false,
+    onlyWifiDownloads: false,
+    reduceMotion: false,
+    accentColorValue: 0xFF1B4332,
+    denseUi: false,
+    showEngineLogPanel: true,
+  );
 
   final String rssUrl;
   final bool proxyFirst;
@@ -104,11 +100,14 @@ class AppSettings {
   final int maxUsedHashEntries;
   final int httpTimeoutSeconds;
   final int androidWallpaperLocation;
+
   /// Windows / Linux / macOS autostart (launch_at_startup).
   final bool runAtStartup;
+
   /// Android: do not download unless on Wi‑Fi or Ethernet.
   final bool onlyWifiDownloads;
   final bool reduceMotion;
+
   /// ARGB for Color(seed) — use `Color(accentColorValue)` with full opacity in theme.
   final int accentColorValue;
   final bool denseUi;
@@ -186,48 +185,49 @@ class AppSettings {
   }
 
   Map<String, dynamic> toJson() => {
-        'rssUrl': rssUrl,
-        'proxyFirst': proxyFirst,
-        'intervalSeconds': intervalSeconds,
-        'maxCachedFiles': maxCachedFiles,
-        'minWidth': minWidth,
-        'minHeight': minHeight,
-        'orientation': orientation.name,
-        'minimizeToTrayOnClose': minimizeToTrayOnClose,
-        'startHiddenInTray': startHiddenInTray,
-        'showTrayIcon': showTrayIcon,
-        'trayTripleClickNext': trayTripleClickNext,
-        'tripleClickWindowMs': tripleClickWindowMs,
-        'windowTripleClickNext': windowTripleClickNext,
-        'hotkeyEnabled': hotkeyEnabled,
-        'hotkeyKeyId': hotkeyKey.keyId,
-        'hotkeyModifiers': hotkeyModifiers.map((m) => m.name).toList(),
-        'prefetchNext': prefetchNext,
-        'filterNsfw': filterNsfw,
-        'skipUsedHashes': skipUsedHashes,
-        'maxUsedHashEntries': maxUsedHashEntries,
-        'httpTimeoutSeconds': httpTimeoutSeconds,
-        'androidWallpaperLocation': androidWallpaperLocation,
-        'runAtStartup': runAtStartup,
-        'onlyWifiDownloads': onlyWifiDownloads,
-        'reduceMotion': reduceMotion,
-        'accentColorValue': accentColorValue,
-        'denseUi': denseUi,
-        'showEngineLogPanel': showEngineLogPanel,
-        'lastWindowWidth': lastWindowWidth,
-        'lastWindowHeight': lastWindowHeight,
-      };
+    'rssUrl': rssUrl,
+    'proxyFirst': proxyFirst,
+    'intervalSeconds': intervalSeconds,
+    'maxCachedFiles': maxCachedFiles,
+    'minWidth': minWidth,
+    'minHeight': minHeight,
+    'orientation': orientation.name,
+    'minimizeToTrayOnClose': minimizeToTrayOnClose,
+    'startHiddenInTray': startHiddenInTray,
+    'showTrayIcon': showTrayIcon,
+    'trayTripleClickNext': trayTripleClickNext,
+    'tripleClickWindowMs': tripleClickWindowMs,
+    'windowTripleClickNext': windowTripleClickNext,
+    'hotkeyEnabled': hotkeyEnabled,
+    'hotkeyKeyId': hotkeyKey.keyId,
+    'hotkeyModifiers': hotkeyModifiers.map((m) => m.name).toList(),
+    'prefetchNext': prefetchNext,
+    'filterNsfw': filterNsfw,
+    'skipUsedHashes': skipUsedHashes,
+    'maxUsedHashEntries': maxUsedHashEntries,
+    'httpTimeoutSeconds': httpTimeoutSeconds,
+    'androidWallpaperLocation': androidWallpaperLocation,
+    'runAtStartup': runAtStartup,
+    'onlyWifiDownloads': onlyWifiDownloads,
+    'reduceMotion': reduceMotion,
+    'accentColorValue': accentColorValue,
+    'denseUi': denseUi,
+    'showEngineLogPanel': showEngineLogPanel,
+    'lastWindowWidth': lastWindowWidth,
+    'lastWindowHeight': lastWindowHeight,
+  };
 
   static AppSettings fromJson(Map<String, dynamic> j) {
     HotKeyModifier parseMod(String s) => HotKeyModifier.values.firstWhere(
-          (e) => e.name == s,
-          orElse: () => HotKeyModifier.alt,
-        );
-    final keyId = (j['hotkeyKeyId'] as num?)?.toInt() ??
-        LogicalKeyboardKey.keyW.keyId;
-    final key = LogicalKeyboardKey.findKeyByKeyId(keyId) ??
-        LogicalKeyboardKey.keyW;
-    final mods = (j['hotkeyModifiers'] as List?)
+      (e) => e.name == s,
+      orElse: () => HotKeyModifier.alt,
+    );
+    final keyId =
+        (j['hotkeyKeyId'] as num?)?.toInt() ?? LogicalKeyboardKey.keyW.keyId;
+    final key =
+        LogicalKeyboardKey.findKeyByKeyId(keyId) ?? LogicalKeyboardKey.keyW;
+    final mods =
+        (j['hotkeyModifiers'] as List?)
             ?.map((e) => parseMod(e as String))
             .toList() ??
         const [HotKeyModifier.alt, HotKeyModifier.shift];

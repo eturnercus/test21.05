@@ -23,6 +23,7 @@ class DesktopIntegration with TrayListener, WindowListener {
   final GlobalKey<NavigatorState> _navigatorKey;
 
   static DesktopIntegration? _instance;
+  DateTime? _lastTrayMenuAt;
 
   static Future<void> init(
     WallpaperEngine engine,
@@ -79,9 +80,7 @@ class DesktopIntegration with TrayListener, WindowListener {
   }
 
   static Future<void> _setupTray(AppSettings s) async {
-    await trayManager.setIcon('assets/tray.png');
-    await trayManager.setToolTip('EarthPorn — ${AppSettings.creator}');
-    await trayManager.setContextMenu(Menu(
+    final menu = Menu(
       items: [
         MenuItem(
           key: 'show',
@@ -124,7 +123,62 @@ class DesktopIntegration with TrayListener, WindowListener {
           },
         ),
       ],
-    ));
+    );
+    try {
+      await trayManager.setContextMenu(menu);
+    } catch (e) {
+      debugPrint('tray setContextMenu: $e');
+    }
+    try {
+      await trayManager.setIcon('assets/tray.png');
+    } catch (e) {
+      debugPrint('tray setIcon: $e');
+    }
+    try {
+      await trayManager.setToolTip('EarthPorn — ${AppSettings.creator}');
+    } catch (e) {
+      debugPrint('tray setToolTip: $e');
+    }
+  }
+
+  void _scheduleTrayMenu() {
+    final now = DateTime.now();
+    if (_lastTrayMenuAt != null &&
+        now.difference(_lastTrayMenuAt!) < const Duration(milliseconds: 450)) {
+      return;
+    }
+    _lastTrayMenuAt = now;
+    scheduleMicrotask(() async {
+      try {
+        await trayManager.popUpContextMenu();
+      } catch (e) {
+        debugPrint('tray popUpContextMenu: $e');
+      }
+    });
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    final st = _settings.settings;
+    if (!st.trayTripleClickNext) return;
+    if (!Platform.isWindows && !Platform.isLinux) return;
+    _scheduleTrayMenu();
+  }
+
+  @override
+  void onTrayIconMouseUp() {
+    final st = _settings.settings;
+    if (!st.trayTripleClickNext) return;
+    if (!Platform.isWindows && !Platform.isLinux) return;
+    _scheduleTrayMenu();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    final st = _settings.settings;
+    if (!st.trayTripleClickNext) return;
+    if (!Platform.isWindows && !Platform.isLinux) return;
+    _scheduleTrayMenu();
   }
 
   Future<void> _registerHotkey(AppSettings s) async {
@@ -142,28 +196,6 @@ class DesktopIntegration with TrayListener, WindowListener {
         unawaited(_engine.nextWallpaperQuick());
       },
     );
-  }
-
-  @override
-  void onTrayIconMouseDown() async {
-    final s = _settings.settings;
-    if (!s.trayTripleClickNext) return;
-    if (Platform.isWindows || Platform.isLinux) {
-      try {
-        await trayManager.popUpContextMenu();
-      } catch (_) {}
-    }
-  }
-
-  @override
-  void onTrayIconRightMouseDown() async {
-    final s = _settings.settings;
-    if (!s.trayTripleClickNext) return;
-    if (Platform.isWindows || Platform.isLinux) {
-      try {
-        await trayManager.popUpContextMenu();
-      } catch (_) {}
-    }
   }
 
   @override

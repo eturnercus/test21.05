@@ -30,7 +30,8 @@ class WallpaperApplyService {
   Future<bool> _windows(String path) async {
     // SystemParametersInfo SPI_SETDESKWALLPAPER — reliable without extra deps.
     final psPath = path.replaceAll("'", "''");
-    final script = r'''
+    final script =
+        r'''
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -40,12 +41,14 @@ public class W {
 }
 "@
 [W]::SystemParametersInfo(20, 0, '__PATH__', 3)
-'''.replaceAll('__PATH__', psPath);
-    final r = await Process.run(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', script],
-      runInShell: false,
-    );
+'''
+            .replaceAll('__PATH__', psPath);
+    final r = await Process.run('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      script,
+    ], runInShell: false);
     return r.exitCode == 0;
   }
 
@@ -108,7 +111,8 @@ public class W {
           return true;
         }
         final esc = path.replaceAll("'", r"'\''");
-        final js = '''
+        final js =
+            '''
 var desktops = desktops();
 for (var i = 0; i < desktops.length; i++) {
   var d = desktops[i];
@@ -159,8 +163,8 @@ for (var i = 0; i < desktops.length; i++) {
   }
 
   _De _detectDe() {
-    final cur =
-        (Platform.environment['XDG_CURRENT_DESKTOP'] ?? '').toLowerCase();
+    final cur = (Platform.environment['XDG_CURRENT_DESKTOP'] ?? '')
+        .toLowerCase();
     if (cur.contains('gnome') || cur.contains('unity')) return _De.gnome;
     if (cur.contains('kde')) return _De.kde;
     if (cur.contains('xfce')) return _De.xfce;

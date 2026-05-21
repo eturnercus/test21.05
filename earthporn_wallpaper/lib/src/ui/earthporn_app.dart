@@ -10,16 +10,13 @@ import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'app_keys.dart';
 import 'home_page.dart';
+import 'main_help_overlay.dart';
 import 'onboarding_page.dart';
 import 'settings_page.dart';
 import 'theme.dart';
 
 class EarthpornApp extends StatefulWidget {
-  const EarthpornApp({
-    super.key,
-    required this.engine,
-    required this.settings,
-  });
+  const EarthpornApp({super.key, required this.engine, required this.settings});
 
   final WallpaperEngine engine;
   final SettingsRepository settings;
@@ -87,9 +84,7 @@ class _EarthpornAppState extends State<EarthpornApp> {
               reduceMotion: s.reduceMotion,
               denseUi: s.denseUi,
             ),
-            routes: {
-              '/settings': (_) => const SettingsPage(),
-            },
+            routes: {'/settings': (_) => const SettingsPage()},
             home: _buildHome(),
           );
         },
@@ -99,9 +94,7 @@ class _EarthpornAppState extends State<EarthpornApp> {
 
   Widget _buildHome() {
     if (_onboardingDone == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (!_onboardingDone! && !kIsWeb && Platform.isAndroid) {
       return OnboardingPage(
@@ -148,12 +141,10 @@ class _MainShellState extends State<MainShell> {
           Positioned.fill(
             child: IndexedStack(
               index: _index,
-              children: const [
-                HomePage(),
-                SettingsPage(),
-              ],
+              children: const [HomePage(), SettingsPage()],
             ),
           ),
+          const Positioned.fill(child: MainHelpOverlay()),
         ],
       ),
       bottomNavigationBar: NavigationBar(

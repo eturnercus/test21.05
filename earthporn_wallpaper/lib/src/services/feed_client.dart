@@ -17,6 +17,47 @@ class FeedClient {
   static String corsProxyIoUrl(String target) =>
       'https://corsproxy.io/?${Uri.encodeComponent(target)}';
 
+  /// Reddit RSS/Atom supports `limit` (default 100 for deeper first page).
+  static String rssUrlWithLimit(String rssUrl, {int limit = 100}) {
+    final u = Uri.tryParse(rssUrl.trim());
+    if (u == null) return rssUrl.trim();
+    final q = Map<String, String>.from(u.queryParameters);
+    if (!q.containsKey('limit')) {
+      q['limit'] = '$limit';
+    }
+    return u.replace(queryParameters: q).toString();
+  }
+
+  /// Next page URL from Atom `<link rel="next" href="…"/>` (Reddit).
+  String? parseNextFeedUrl(String xmlText) {
+    try {
+      final doc = XmlDocument.parse(xmlText);
+      final root = doc.rootElement;
+      for (final el in root.descendants.whereType<XmlElement>()) {
+        if (el.name.local != 'link') continue;
+        final rel = el.getAttribute('rel')?.toLowerCase() ?? '';
+        if (!rel.contains('next')) continue;
+        final href = el.getAttribute('href');
+        if (href != null && href.isNotEmpty) {
+          return href.replaceAll('&amp;', '&').trim();
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static void sortWallpaperCandidates(List<WallpaperCandidate> out) {
+    out.sort((a, b) {
+      final sa = a.resolutionScore;
+      final sb = b.resolutionScore;
+      if (sb != sa) return sb.compareTo(sa);
+      final ua = redditPixelAreaEstimate(a.url);
+      final ub = redditPixelAreaEstimate(b.url);
+      if (ub != ua) return ub.compareTo(ua);
+      return b.url.length.compareTo(a.url.length);
+    });
+  }
+
   /// Browser URL for the subreddit from `…/r/Name/.rss`.
   static Uri browseUriFromRss(String rssUrl) {
     final u = Uri.tryParse(rssUrl.trim());
@@ -47,7 +88,9 @@ class FeedClient {
     };
     Future<String?> tryGet(String u) async {
       try {
-        final r = await _client.get(Uri.parse(u), headers: headers).timeout(timeout);
+        final r = await _client
+            .get(Uri.parse(u), headers: headers)
+            .timeout(timeout);
         if (r.statusCode >= 200 && r.statusCode < 300) {
           return r.body;
         }
@@ -97,7 +140,9 @@ class FeedClient {
       final title = _textOf(entry, 'title');
       final linkHref = _linkHref(entry);
       final linkText = _textOf(entry, 'link');
-      final link = (linkHref != null && linkHref.isNotEmpty) ? linkHref : linkText;
+      final link = (linkHref != null && linkHref.isNotEmpty)
+          ? linkHref
+          : linkText;
       final desc = _blob(entry);
 
       final urls = <String>{};
@@ -109,31 +154,26 @@ class FeedClient {
         if (!u.startsWith('http')) continue;
         var score = resolutionScoreFromText(title);
         if (score == 0) score = resolutionScoreFromText(u);
-        out.add(WallpaperCandidate(
-          url: u,
-          title: title,
-          resolutionScore: score,
-          postUrl: link,
-        ));
+        out.add(
+          WallpaperCandidate(
+            url: u,
+            title: title,
+            resolutionScore: score,
+            postUrl: link,
+          ),
+        );
       }
     }
 
-    out.sort((a, b) {
-      final sa = a.resolutionScore;
-      final sb = b.resolutionScore;
-      if (sb != sa) return sb.compareTo(sa);
-      final ua = redditPixelAreaEstimate(a.url);
-      final ub = redditPixelAreaEstimate(b.url);
-      if (ub != ua) return ub.compareTo(ua);
-      return b.url.length.compareTo(a.url.length);
-    });
+    sortWallpaperCandidates(out);
     return out;
   }
 
   bool _isNsfw(XmlElement entry) {
     for (final c in entry.childElements) {
       if (c.name.local != 'category') continue;
-      final term = c.getAttribute('term')?.toLowerCase() ??
+      final term =
+          c.getAttribute('term')?.toLowerCase() ??
           c.getAttribute('label')?.toLowerCase();
       if (term == 'nsfw') return true;
     }

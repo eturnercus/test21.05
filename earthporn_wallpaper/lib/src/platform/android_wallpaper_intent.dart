@@ -5,8 +5,9 @@ import 'package:flutter/services.dart';
 
 /// Opens Android live wallpaper chooser / plugin live wallpaper flow.
 class AndroidWallpaperIntent {
-  static const _channel =
-      MethodChannel('com.eturnercus.earthporn_wallpaper/installer');
+  static const _channel = MethodChannel(
+    'com.eturnercus.earthporn_wallpaper/installer',
+  );
 
   static Future<bool> openLiveWallpaperFlow() async {
     if (kIsWeb) return false;

@@ -1,11 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Last successful HTTP path for Reddit image bytes (persisted for faster retries).
-enum ImageFetchChannel {
-  direct,
-  allOrigins,
-  corsProxy,
-}
+enum ImageFetchChannel { direct, allOrigins, corsProxy }
 
 class ImageFetchPrefs {
   ImageFetchPrefs._();

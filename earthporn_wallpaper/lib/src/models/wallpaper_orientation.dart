@@ -1,5 +1,1 @@
-enum WallpaperOrientation {
-  landscape,
-  portrait,
-  any,
-}
+enum WallpaperOrientation { landscape, portrait, any }

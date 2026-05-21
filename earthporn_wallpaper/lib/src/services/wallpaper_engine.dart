@@ -28,9 +28,9 @@ class WallpaperEngine extends ChangeNotifier {
     FeedClient? feedClient,
     WallpaperApplyService? applyService,
     http.Client? httpClient,
-  })  : _settingsRepository = settingsRepository,
-        _feed = feedClient ?? FeedClient(httpClient: httpClient),
-        _apply = applyService ?? WallpaperApplyService();
+  }) : _settingsRepository = settingsRepository,
+       _feed = feedClient ?? FeedClient(httpClient: httpClient),
+       _apply = applyService ?? WallpaperApplyService();
 
   final SettingsRepository _settingsRepository;
   final FeedClient _feed;
@@ -122,6 +122,51 @@ class WallpaperEngine extends ChangeNotifier {
     super.dispose();
   }
 
+  static const int _maxRssPages = 15;
+
+  /// Walks Reddit `rel="next"` pages (and `limit=100` on first URL) so one
+  /// refresh sees more than a single RSS chunk (~25–100 posts).
+  Future<List<WallpaperCandidate>> _gatherFeedCandidates(
+    AppSettings s, {
+    bool logPageCount = false,
+  }) async {
+    final merged = <WallpaperCandidate>[];
+    final seen = <String>{};
+    var pageUrl = FeedClient.rssUrlWithLimit(s.rssUrl);
+    final timeout = Duration(seconds: s.httpTimeoutSeconds);
+    var pages = 0;
+    for (var i = 0; i < _maxRssPages; i++) {
+      pages++;
+      final xml = await _feed.fetchRssXml(
+        rssUrl: pageUrl,
+        proxyFirst: s.proxyFirst,
+        timeout: timeout,
+      );
+      if (xml == null || xml.isEmpty) break;
+      List<WallpaperCandidate> batch;
+      try {
+        batch = _feed.parseCandidates(xml);
+      } catch (_) {
+        break;
+      }
+      for (final c in batch) {
+        if (seen.add(c.url)) merged.add(c);
+      }
+      final next = _feed.parseNextFeedUrl(xml);
+      if (next == null || next.isEmpty) break;
+      final n = next.trim();
+      if (n == pageUrl) break;
+      pageUrl = n;
+    }
+    FeedClient.sortWallpaperCandidates(merged);
+    if (logPageCount && pages > 1) {
+      _append(
+        'RSS: просмотрено $pages страниц ленты, уникальных ссылок на картинки: ${merged.length}.',
+      );
+    }
+    return merged;
+  }
+
   /// Next wallpaper: use prefetch file if valid, otherwise download.
   Future<void> nextWallpaperQuick() async {
     var prefetchLater = false;
@@ -135,7 +180,9 @@ class WallpaperEngine extends ChangeNotifier {
       final meta = File(p.join(dir.path, '_prefetch_meta.txt'));
       if (prefetch.existsSync()) {
         if (await _validateFile(prefetch)) {
-          final dest = File(p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'));
+          final dest = File(
+            p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'),
+          );
           await prefetch.rename(dest.path);
           final ok = await _apply.apply(
             dest,
@@ -180,26 +227,17 @@ class WallpaperEngine extends ChangeNotifier {
         return;
       }
       final s = settings;
-      final xml = await _feed.fetchRssXml(
-        rssUrl: s.rssUrl,
-        proxyFirst: s.proxyFirst,
-        timeout: Duration(seconds: s.httpTimeoutSeconds),
-      );
-      if (xml == null || xml.isEmpty) {
-        _append('RSS недоступен (проверьте интернет).');
-        notifyListeners();
-        return;
-      }
       List<WallpaperCandidate> list;
       try {
-        list = _feed.parseCandidates(xml);
-      } catch (e) {
-        _append('Ошибка разбора RSS: $e');
+        list = await _gatherFeedCandidates(s, logPageCount: true);
+      } catch (e, st) {
+        _append('Ошибка загрузки RSS: $e');
+        debugPrint('$st');
         notifyListeners();
         return;
       }
       if (list.isEmpty) {
-        _append('В ленте нет изображений.');
+        _append('В ленте нет изображений (или RSS не отдал записей).');
         notifyListeners();
         return;
       }
@@ -213,7 +251,11 @@ class WallpaperEngine extends ChangeNotifier {
         if (!titleOrientationMatches(c.title, s.orientation)) continue;
 
         final tmp = File(
-            p.join(dir.path, '_tmp_${DateTime.now().microsecondsSinceEpoch}.part'));
+          p.join(
+            dir.path,
+            '_tmp_${DateTime.now().microsecondsSinceEpoch}.part',
+          ),
+        );
         final okDl = await _download(c.url, tmp, s.httpTimeoutSeconds);
         if (!okDl) {
           await _safeDelete(tmp);
@@ -225,7 +267,9 @@ class WallpaperEngine extends ChangeNotifier {
           continue;
         }
 
-        final dest = File(p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'));
+        final dest = File(
+          p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'),
+        );
         await tmp.rename(dest.path);
 
         final applied = await _apply.apply(
@@ -247,7 +291,10 @@ class WallpaperEngine extends ChangeNotifier {
         prefetchAfter = s.prefetchNext;
         return;
       }
-      _append('Нет подходящих новых изображений (фильтры / история).');
+      _append(
+        'Нет подходящего кадра среди просмотренных страниц ленты (фильтры, история «не повторять», мин. размер ${s.minWidth}×${s.minHeight}, ориентация). '
+        'На Reddit миллионы постов, но RSS отдаёт только «верх» ленты; приложение уже прошло по нескольким страницам. Попробуйте: снизить минимум пикселей, включить «любая» ориентация, очистить историю в настройках или сменить подреддит.',
+      );
       notifyListeners();
     });
     return prefetchAfter;
@@ -257,18 +304,13 @@ class WallpaperEngine extends ChangeNotifier {
     await _lock.synchronized(() async {
       if (!await _wifiOk()) return;
       final s = settings;
-      final xml = await _feed.fetchRssXml(
-        rssUrl: s.rssUrl,
-        proxyFirst: s.proxyFirst,
-        timeout: Duration(seconds: s.httpTimeoutSeconds),
-      );
-      if (xml == null) return;
       List<WallpaperCandidate> list;
       try {
-        list = _feed.parseCandidates(xml);
+        list = await _gatherFeedCandidates(s);
       } catch (_) {
         return;
       }
+      if (list.isEmpty) return;
       final used = await _loadUsedHashes();
       final dir = await _wallpaperDir();
       final prefetch = File(p.join(dir.path, '_prefetch_next.jpg'));
@@ -314,8 +356,9 @@ class WallpaperEngine extends ChangeNotifier {
     }) async {
       final client = http.Client();
       try {
-        final r =
-            await client.get(Uri.parse(u), headers: headers).timeout(timeout);
+        final r = await client
+            .get(Uri.parse(u), headers: headers)
+            .timeout(timeout);
         if (r.statusCode >= 200 &&
             r.statusCode < 300 &&
             r.bodyBytes.isNotEmpty) {
@@ -346,10 +389,10 @@ class WallpaperEngine extends ChangeNotifier {
       } else if (channel == ImageFetchChannel.allOrigins) {
         for (final c in candidates) {
           if (await tryOnce(
-                FeedClient.allOriginsRawUrl(c),
-                'AllOrigins',
-                announceOk: true,
-              )) {
+            FeedClient.allOriginsRawUrl(c),
+            'AllOrigins',
+            announceOk: true,
+          )) {
             await ImageFetchPrefs.savePreferred(ImageFetchChannel.allOrigins);
             return true;
           }
@@ -357,10 +400,10 @@ class WallpaperEngine extends ChangeNotifier {
       } else {
         for (final c in candidates) {
           if (await tryOnce(
-                FeedClient.corsProxyIoUrl(c),
-                'corsproxy.io',
-                announceOk: true,
-              )) {
+            FeedClient.corsProxyIoUrl(c),
+            'corsproxy.io',
+            announceOk: true,
+          )) {
             await ImageFetchPrefs.savePreferred(ImageFetchChannel.corsProxy);
             return true;
           }
@@ -422,15 +465,13 @@ class WallpaperEngine extends ChangeNotifier {
 
   Future<void> _rotateCache(Directory dir) async {
     final max = settings.maxCachedFiles.clamp(1, 50);
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) {
+    final files =
+        dir.listSync().whereType<File>().where((f) {
           final n = p.basename(f.path);
           return n.startsWith('wp_') && n.endsWith('.jpg');
-        })
-        .toList()
-      ..sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+        }).toList()..sort(
+          (a, b) => a.statSync().modified.compareTo(b.statSync().modified),
+        );
 
     while (files.length > max) {
       final oldest = files.removeAt(0);

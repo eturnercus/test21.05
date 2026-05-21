@@ -61,12 +61,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'EarthPorn',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      'EarthPorn',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: scheme.secondary,
                       ),
-                )
+                    )
                     .animate()
                     .fadeIn(duration: 500.ms)
                     .slideY(begin: 0.08, curve: Curves.easeOutCubic),
@@ -93,7 +93,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   const SizedBox(height: 16),
                   _ChoiceTile(
                     title: 'Статические обои',
-                    subtitle: 'Автоматическая смена из r/EarthPorn (рекомендуется)',
+                    subtitle:
+                        'Автоматическая смена из r/EarthPorn (рекомендуется)',
                     icon: Icons.image_outlined,
                     onTap: () => _finish(openLiveChooser: false),
                   ),
@@ -150,11 +151,12 @@ class _ChoiceTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),

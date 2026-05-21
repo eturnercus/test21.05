@@ -21,14 +21,17 @@ ThemeData buildEarthpornTheme({
 
   return base.copyWith(
     scaffoldBackgroundColor: scheme.surfaceContainerLowest,
-    splashFactory:
-        reduceMotion ? NoSplash.splashFactory : InkSplash.splashFactory,
+    splashFactory: reduceMotion
+        ? NoSplash.splashFactory
+        : InkSplash.splashFactory,
     textTheme: base.textTheme.apply(
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,
     ),
     iconTheme: IconThemeData(color: scheme.onSurface),
-    dividerTheme: DividerThemeData(color: scheme.outline.withValues(alpha: 0.22)),
+    dividerTheme: DividerThemeData(
+      color: scheme.outline.withValues(alpha: 0.22),
+    ),
     appBarTheme: AppBarTheme(
       centerTitle: true,
       scrolledUnderElevation: 0,

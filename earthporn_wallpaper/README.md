@@ -1,76 +1,149 @@
+<div align="center">
+
 # EarthPorn Wallpaper
 
-Кроссплатформенное приложение (**Android**, **Linux**, **Windows**): тянет публичную RSS-ленту [r/EarthPorn](https://www.reddit.com/r/EarthPorn/.rss) (без OAuth), по возможности через прокси AllOrigins, скачивает изображения, фильтрует по размеру и ориентации, ведёт историю без повторов, держит не больше N файлов в кэше и ставит обои средствами ОС.
+### Живые обои из Reddit — без аккаунта, с умным кэшем и треем
 
-**Создатель: eturnercus**
+**Android · Linux · Windows** · RSS · prefetch · история показов · **eturnercus**
 
-## Возможности
+[![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter)](https://flutter.dev/)
+[![License](https://img.shields.io/badge/license-specify-blue)](LICENSE)
 
-- Старт с **немедленной** сменой обоев, далее по таймеру (**по умолчанию 30 минут = 1800 с**, как в исходном Python-скрипте с `CHECK_INTERVAL = 1800`).
-- **Android:** при первой установке — мастер выбора **статических** или **живых** обоев (открывается системный выбор живых обоев). Для телефона по умолчанию фильтр **вертикальных** кадров (портрет) и порог пикселей 1080×1920.
-- **Запас (prefetch)** следующей картинки для быстрой смены.
-- **Три нажатия ЛКМ** (или три тапа на Android) **по пустой полоске внизу** главной и настроек — следующая картинка (не по кнопкам). **Клик по иконке в трее** (Windows/Linux) — меню: следующие обои, подкачать запас, настройки, выход.
-- Глобальное сочетание **Alt+Shift+W** (или N/E в настройках).
-- Расширенные настройки: RSS, прокси, интервал (пресеты), кэш, разрешение, ориентация, **только Wi‑Fi** на Android, **автозапуск** на десктопе, акцент темы, reduce motion, плотность UI, трей, горячие клавиши, цель обоев на Android.
+[Сабреддит r/EarthPorn](https://www.reddit.com/r/EarthPorn/) · [RSS по умолчанию](https://www.reddit.com/r/EarthPorn/.rss)
 
-## Сборки в GitHub Actions
+</div>
 
-В репозитории workflow `.github/workflows/earthporn-artifacts.yml` собирает **три независимых артефакта** (каждый job с `continue-on-error: true`):
+---
 
-| Артефакт | Содержимое |
-|----------|------------|
-| `earthporn-android-debug-apk` | `flutter build apk --debug` (подпись **debug** из стандартного keystore Gradle) |
-| `earthporn-linux-portable-tar-gz` | `flutter build linux --release` → архив каталога `bundle` (без установки, распаковать и запустить `earthporn_wallpaper`) |
-| `earthporn-windows-portable-zip` | `flutter build windows --release` → zip каталога `Release` |
+## В двух словах
 
-AppImage можно собрать локально из Linux bundle (см. `scripts/build_appimage.sh`).
+Приложение читает **публичную RSS-ленту** (OAuth не нужен), подтягивает картинки через **прямой канал** и при необходимости **AllOrigins / corsproxy**, фильтрует по **размеру и ориентации**, ведёт **историю без повторов**, держит **кэш** и ставит **обои** средствами ОС. На десктопе есть **трей**, **горячие клавиши** и **один экземпляр** процесса.
 
-## Локальная сборка
+---
 
-Требуется [Flutter](https://flutter.dev/) (stable), для Linux ещё GTK и типичный набор для `flutter build linux` (CMake, Ninja, clang++).
+## Скринкаст возможностей (текстом)
+
+| Платформа | Что особенного |
+|-----------|----------------|
+| **Android** | Первый запуск: статические vs живые обои; фильтр портрета по умолчанию; только Wi‑Fi |
+| **Windows / Linux** | Трей с меню, сворачивание при закрытии окна, глобальный хоткей, single-instance |
+| **Все** | Полупрозрачная **справка** на главном экране при первом входе; полоска **тройного жеста** внизу |
+
+---
+
+## Быстрый старт
 
 ```bash
 cd earthporn_wallpaper
 flutter pub get
-flutter run   # или flutter build apk / windows / linux
+flutter run   # или flutter build apk / linux / windows
 ```
 
-### Debian / Ubuntu — зависимости для **разработки** Linux desktop
+Подробные зависимости для **Linux** (CMake, GTK, keybinder, индикатор трея) — в разделе [Сборка](#сборка) ниже.
 
-Пример (имена пакетов могут отличаться по версии дистрибутива):
+---
+
+## Оглавление
+
+1. [Возможности](#возможности)  
+2. [Жесты, трей, один экземпляр](#жесты-трей-один-экземпляр)  
+3. [Почему «нет подходящих» при миллионах постов](#почему-нет-подходящих-при-миллионах-постов)  
+4. [Сборка и CI](#сборка)  
+5. [Структура проекта](#структура-проекта)  
+6. [Лицензия](#лицензия)
+
+---
+
+## Возможности
+
+- **Интервал** смены по умолчанию **30 минут (1800 с)** — как в исходном Python-скрипте.
+- **RSS** с резервом **AllOrigins** и **corsproxy.io** для картинок; запоминается **последний удачный канал** загрузки для ускорения следующих запросов.
+- **Пагинация ленты**: до **15 страниц** `rel="next"` + `limit=100` на первом запросе — больше кандидатов за один проход, чем у одной «верхушки» RSS.
+- **Prefetch** следующего кадра и быстрая смена из запаса.
+- **Фильтры**: минимальное разрешение, ориентация, NSFW, «не повторять» по ID Reddit.
+- **Настройки**: акцент темы (полная **Material 3** палитра), reduce motion, плотность UI, журнал движка.
+
+---
+
+## Жесты, трей, один экземпляр
+
+### Тройной клик по «пустому» месту
+
+Три нажатия **левой кнопки мыши** (или три **тапа** на Android) работают **только по серой полоске внизу** главной и настроек — не по кнопкам и карточкам. Полоска закреплена **под** прокручиваемым списком, поэтому область всегда видна и получает события.
+
+**Права администратора** для этого жеста **не нужны**. Если на Windows не регистрируется **глобальная горячая клавиша**, на корпоративных политиках иногда помогает запуск от администратора — это относится **только к хоткею**, не к обоям и не к полоске.
+
+### Трей (Windows / Linux)
+
+Включите **«Показывать иконку в трее»** и **«Клик по иконке в трее: меню»**. По **левому или правому** клику открывается контекстное меню (с антидребезгом 450 ms). Пункты: показать окно, следующие обои, подкачать запас, настройки, выход.
+
+На **Wayland** или без библиотек индикатора меню может не появиться — установите пакеты индикатора (см. [Сборка](#сборка)).
+
+### Один экземпляр
+
+На **Windows / Linux / macOS** второй запуск приложения **сразу завершается** (локальный `ServerSocket` на `127.0.0.1:48193`), остаётся только первый процесс.
+
+---
+
+## Почему «нет подходящих» при миллионах постов
+
+Reddit действительно огромен, но:
+
+1. **RSS — это не вся лента**, а верхняя выборка постов (плюс мы ходим по `rel="next"` и `limit=100`).
+2. **Фильтры** отсекают кадры: например, режим «ландшафт» убирает вертикальные фото; минимум **1920×1080** убирает чуть меньшие разрешения.
+3. **«Не повторять»** исключает уже показанные ID — при длинной истории свободных вариантов в текущей «волне» RSS становится мало.
+
+**Что сделать:** снизить минимальное разрешение, выбрать ориентацию «любая», очистить историю или сменить подреддит / RSS URL.
+
+---
+
+## Сборка
+
+### GitHub Actions
+
+Файл `.github/workflows/earthporn-artifacts.yml` — три независимых артефакта (каждый job с `continue-on-error: true`):
+
+| Артефакт | Содержимое |
+|----------|------------|
+| `earthporn-android-debug-apk` | `flutter build apk --debug` |
+| `earthporn-linux-portable-tar-gz` | `flutter build linux --release` → `bundle` |
+| `earthporn-windows-portable-zip` | `flutter build windows --release` → `Release` |
+
+### Debian / Ubuntu (разработка Linux desktop)
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y curl git unzip xz-utils zip libglu1-mesa \
-  clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
-  libstdc++-12-dev
+sudo apt-get install -y curl git unzip xz-utils zip clang cmake ninja-build \
+  pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev \
+  libayatana-appindicator3-dev libkeybinder-3.0-dev
 ```
 
-Для **трея** на GTK обычно нужен индикатор (один из вариантов):
+Для **трея** нужен индикатор (вариант выше). Для **hotkey_manager** — **libkeybinder-3.0-dev**.
 
-```bash
-sudo apt-get install -y libayatana-appindicator3-dev
-# или: libappindicator3-dev
-```
+---
 
-Для **глобальных горячих клавиш** (пакет `hotkey_manager` на X11) нужен keybinder 3:
+## Структура проекта
 
-```bash
-sudo apt-get install -y libkeybinder-3.0-dev
-```
+| Путь | Назначение |
+|------|------------|
+| `lib/main.dart` | Точка входа, single-instance на десктопе |
+| `lib/src/ui/` | Тема, главная, настройки, онбординг Android, справка |
+| `lib/src/services/wallpaper_engine.dart` | RSS, пагинация, загрузка, prefetch, история |
+| `lib/src/services/feed_client.dart` | HTTP RSS, `rel="next"`, сортировка кандидатов |
+| `lib/src/desktop/desktop_integration.dart` | Трей, окно, хоткей |
+| `android/` | MethodChannel для живых обоев |
+| `assets/` | Иконка трея и источник launcher |
 
-Для смены обоев: в GNOME/KDE/XFCE/Cinnamon/MATE приложение вызывает `gsettings`, `plasma-apply-wallpaperimage`, `xfconf-query` и т.д.; запасной вариант — `feh --bg-fill`, на Windows — `SystemParametersInfo` через PowerShell.
-
-### AppImage
-
-После `flutter build linux --release` готовый бинарь лежит в  
-`build/linux/x64/release/bundle/`. Упаковать в AppImage можно с [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + [appimagetool](https://github.com/AppImage/AppImageKit). Черновой сценарий: `earthporn_wallpaper/scripts/build_appimage.sh` (проверьте пути к linuxdeploy и appimagetool на своей машине).
-
-## Структура
-
-- `lib/` — UI и сервисы (RSS, кэш, обои, трей/окно на десктопе).
-- `assets/tray.png` — иконка трея (в бандле Flutter).
+---
 
 ## Лицензия
 
-Проект в репозитории пользователя — уточните лицензию при необходимости.
+Уточните лицензию при публикации форка.
+
+---
+
+<div align="center">
+
+**Создатель: [eturnercus](https://github.com/eturnercus)** · Issues и PR приветствуются
+
+</div>
