@@ -219,8 +219,7 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
       }
       buf
         ..writeln(
-          '• Reddit feels infinite, but RSS returns one chunk at a time; the app follows “next” links (up to 15 pages). '
-          'If nothing matches, relax minimum resolution, use “any” orientation, clear history, or change subreddit.\n',
+          '• If new wallpapers rarely appear, review filters, RSS URL, and “no repeats” history in Settings.\n',
         )
         ..writeln(
           '• Second desktop launch exits immediately — only one instance stays open.\n',
@@ -255,8 +254,7 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
     }
     buf
       ..writeln(
-        '• Лента на сайте огромная, но RSS отдаёт порцию; приложение идёт по «следующей странице» (до 15 шагов). '
-        'Если «нет подходящих» — ослабьте минимум пикселей, «любая» ориентация, очистите историю или смените сабреддит.\n',
+        '• Если новые обои появляются редко, загляните в настройки: фильтры, адрес RSS и история «не повторять».\n',
       )
       ..writeln(
         '• Второй запуск на ПК сразу закрывается — остаётся только первый экземпляр.\n',

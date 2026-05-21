@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/wallpaper_orientation.dart';
 
-/// Reddit image URL cleanup (matches the original Python helper).
+/// Normalizes Reddit image URLs for reliable downloads.
 String normalizeRedditImageUrl(String url) {
   var u = url.replaceAll('&amp;', '&').trim();
   final uri = Uri.tryParse(u);
