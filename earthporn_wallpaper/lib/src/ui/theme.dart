@@ -8,62 +8,124 @@ ThemeData buildEarthpornTheme({
   bool denseUi = false,
 }) {
   final seed = seedColor ?? const Color(0xFF1B4332);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: Brightness.dark,
+  );
+
   final base = ThemeData(
     useMaterial3: true,
     visualDensity: denseUi ? VisualDensity.compact : VisualDensity.standard,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: Brightness.dark,
-      primary: const Color(0xFF52B788),
-      secondary: const Color(0xFFB7E4C7),
-      surface: const Color(0xFF0A1610),
-      tertiary: const Color(0xFF95D5B2),
-    ),
+    colorScheme: scheme,
   );
+
   return base.copyWith(
-    scaffoldBackgroundColor: const Color(0xFF020806),
-    // InkSparkle / runtime Google Fonts can fault on some devices or offline; keep defaults stable.
+    scaffoldBackgroundColor: scheme.surfaceContainerLowest,
     splashFactory:
         reduceMotion ? NoSplash.splashFactory : InkSplash.splashFactory,
     textTheme: base.textTheme.apply(
-      bodyColor: const Color(0xFFE8F5E9),
-      displayColor: const Color(0xFFE8F5E9),
+      bodyColor: scheme.onSurface,
+      displayColor: scheme.onSurface,
     ),
+    iconTheme: IconThemeData(color: scheme.onSurface),
+    dividerTheme: DividerThemeData(color: scheme.outline.withValues(alpha: 0.22)),
     appBarTheme: AppBarTheme(
       centerTitle: true,
       scrolledUnderElevation: 0,
       backgroundColor: Colors.transparent,
       elevation: 0,
+      foregroundColor: scheme.onSurface,
+      surfaceTintColor: Colors.transparent,
       titleTextStyle: base.textTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.w600,
-        color: const Color(0xFFD8F3DC),
+        color: scheme.onSurface,
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
       height: denseUi ? 64 : 72,
-      backgroundColor: const Color(0xFF0D1F17).withValues(alpha: 0.88),
-      indicatorColor: seed.withValues(alpha: 0.35),
+      backgroundColor: scheme.surfaceContainer.withValues(alpha: 0.94),
+      indicatorColor: scheme.primary.withValues(alpha: 0.35),
+      surfaceTintColor: Colors.transparent,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(color: scheme.onSecondaryContainer);
+        }
+        return IconThemeData(color: scheme.onSurfaceVariant);
+      }),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final style = base.textTheme.labelMedium;
+        if (states.contains(WidgetState.selected)) {
+          return style?.copyWith(color: scheme.onSecondaryContainer);
+        }
+        return style?.copyWith(color: scheme.onSurfaceVariant);
+      }),
     ),
     cardTheme: CardThemeData(
-      color: const Color(0xFF0F2419).withValues(alpha: 0.72),
+      color: scheme.surfaceContainerHigh.withValues(alpha: 0.72),
       elevation: 0,
       shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+        side: BorderSide(color: scheme.outline.withValues(alpha: 0.18)),
       ),
     ),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
+      backgroundColor: scheme.inverseSurface,
+      contentTextStyle: base.textTheme.bodyMedium?.copyWith(
+        color: scheme.onInverseSurface,
+      ),
     ),
-    dividerTheme:
-        DividerThemeData(color: Colors.white.withValues(alpha: 0.08)),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: scheme.primary,
+        side: BorderSide(color: scheme.outline.withValues(alpha: 0.5)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: scheme.primary),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: scheme.outline.withValues(alpha: 0.35)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: scheme.outline.withValues(alpha: 0.35)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: scheme.primary, width: 1.5),
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return scheme.onPrimary;
+        }
+        return scheme.outline;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return scheme.primary.withValues(alpha: 0.65);
+        }
+        return scheme.surfaceContainerHighest;
+      }),
+    ),
+    listTileTheme: ListTileThemeData(
+      iconColor: scheme.onSurfaceVariant,
+      textColor: scheme.onSurface,
     ),
   );
 }

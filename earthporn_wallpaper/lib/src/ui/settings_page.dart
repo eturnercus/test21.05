@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,7 @@ import '../models/app_settings.dart';
 import '../models/wallpaper_orientation.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
+import 'triple_empty_wallpaper_area.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -174,9 +176,15 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         title: const Text('Настройки'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
+      body: Consumer2<WallpaperEngine, SettingsRepository>(
+        builder: (context, engine, repo, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
           Text('Создатель: ${AppSettings.creator}',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
@@ -399,12 +407,18 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (v) => setState(() => _showTray = v),
           ),
           SwitchListTile(
-            title: const Text('Три нажатия по иконке трея — следующая'),
+            title: const Text('Клик по иконке в трее: меню (след. кадр, выход…)'),
+            subtitle: const Text(
+              'Windows / Linux / macOS. Если выключено — попробуйте ПКМ по иконке.',
+            ),
             value: _trayTriple,
             onChanged: (v) => setState(() => _trayTriple = v),
           ),
           SwitchListTile(
-            title: const Text('Три тапа по главному окну — следующая'),
+            title: const Text('Три нажатия по пустой полоске внизу — следующая'),
+            subtitle: const Text(
+              'Главная и настройки: только полоска под списком, не по кнопкам.',
+            ),
             value: _winTriple,
             onChanged: (v) => setState(() => _winTriple = v),
           ),
@@ -489,7 +503,17 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             },
           ),
-        ],
+                  ],
+                ),
+              ),
+              TripleEmptyWallpaperArea(
+                enabled: repo.settings.windowTripleClickNext,
+                windowMs: repo.settings.tripleClickWindowMs,
+                onTriple: () => unawaited(engine.nextWallpaperQuick()),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

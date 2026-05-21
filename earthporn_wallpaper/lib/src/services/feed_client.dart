@@ -118,7 +118,15 @@ class FeedClient {
       }
     }
 
-    out.sort((a, b) => b.resolutionScore.compareTo(a.resolutionScore));
+    out.sort((a, b) {
+      final sa = a.resolutionScore;
+      final sb = b.resolutionScore;
+      if (sb != sa) return sb.compareTo(sa);
+      final ua = redditPixelAreaEstimate(a.url);
+      final ub = redditPixelAreaEstimate(b.url);
+      if (ub != ua) return ub.compareTo(ua);
+      return b.url.length.compareTo(a.url.length);
+    });
     return out;
   }
 

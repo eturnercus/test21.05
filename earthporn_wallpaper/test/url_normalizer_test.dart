@@ -57,6 +57,17 @@ void main() {
     });
   });
 
+  group('redditPixelAreaEstimate', () {
+    test('reads width/height from preview URL query', () {
+      expect(
+        redditPixelAreaEstimate(
+          'https://preview.redd.it/x.jpg?width=3200&height=1800',
+        ),
+        3200 * 1800,
+      );
+    });
+  });
+
   group('FeedClient.browseUriFromRss', () {
     test('strips .rss path suffix', () {
       final u = FeedClient.browseUriFromRss(

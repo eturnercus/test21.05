@@ -24,9 +24,6 @@ class DesktopIntegration with TrayListener, WindowListener {
 
   static DesktopIntegration? _instance;
 
-  int _trayDowns = 0;
-  Timer? _trayReset;
-
   static Future<void> init(
     WallpaperEngine engine,
     SettingsRepository settings,
@@ -102,6 +99,13 @@ class DesktopIntegration with TrayListener, WindowListener {
           },
         ),
         MenuItem(
+          key: 'prefetch',
+          label: 'Подкачать запас из сети',
+          onClick: (_) {
+            unawaited(_instance?._engine.triggerPrefetch());
+          },
+        ),
+        MenuItem(
           key: 'settings',
           label: 'Настройки…',
           onClick: (_) async {
@@ -141,18 +145,24 @@ class DesktopIntegration with TrayListener, WindowListener {
   }
 
   @override
-  void onTrayIconMouseDown() {
+  void onTrayIconMouseDown() async {
     final s = _settings.settings;
     if (!s.trayTripleClickNext) return;
-    _trayDowns++;
-    _trayReset?.cancel();
-    _trayReset = Timer(Duration(milliseconds: s.tripleClickWindowMs), () {
-      _trayDowns = 0;
-    });
-    if (_trayDowns >= 3) {
-      _trayDowns = 0;
-      _trayReset?.cancel();
-      unawaited(_engine.nextWallpaperQuick());
+    if (Platform.isWindows || Platform.isLinux) {
+      try {
+        await trayManager.popUpContextMenu();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  void onTrayIconRightMouseDown() async {
+    final s = _settings.settings;
+    if (!s.trayTripleClickNext) return;
+    if (Platform.isWindows || Platform.isLinux) {
+      try {
+        await trayManager.popUpContextMenu();
+      } catch (_) {}
     }
   }
 
@@ -168,7 +178,6 @@ class DesktopIntegration with TrayListener, WindowListener {
   }
 
   void dispose() {
-    _trayReset?.cancel();
     windowManager.removeListener(this);
     trayManager.removeListener(this);
   }

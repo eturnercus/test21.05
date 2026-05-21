@@ -48,9 +48,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF03140C),
+              scheme.surfaceContainerLow,
               scheme.surface,
-              const Color(0xFF0B3D28),
+              scheme.primary.withValues(alpha: 0.45),
             ],
           ),
         ),
@@ -133,8 +133,9 @@ class _ChoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: Colors.white.withValues(alpha: 0.05),
+      color: scheme.onSurface.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),

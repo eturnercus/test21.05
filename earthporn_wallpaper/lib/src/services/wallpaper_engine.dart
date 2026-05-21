@@ -16,6 +16,7 @@ import '../models/app_settings.dart';
 import '../models/wallpaper_candidate.dart';
 import '../models/wallpaper_orientation.dart';
 import 'feed_client.dart';
+import 'image_fetch_prefs.dart';
 import 'settings_repository.dart';
 import 'url_normalizer.dart';
 import 'wallpaper_apply_service.dart';
@@ -303,11 +304,18 @@ class WallpaperEngine extends ChangeNotifier {
     };
     final timeout = Duration(seconds: timeoutSec);
     final candidates = redditImageDownloadCandidates(url);
+    final preferred = await ImageFetchPrefs.loadPreferred();
+    final channelOrder = ImageFetchPrefs.ordered(preferred);
 
-    Future<bool> tryOnce(String u, String channelRu, {bool announceOk = false}) async {
+    Future<bool> tryOnce(
+      String u,
+      String channelRu, {
+      bool announceOk = false,
+    }) async {
       final client = http.Client();
       try {
-        final r = await client.get(Uri.parse(u), headers: headers).timeout(timeout);
+        final r =
+            await client.get(Uri.parse(u), headers: headers).timeout(timeout);
         if (r.statusCode >= 200 &&
             r.statusCode < 300 &&
             r.bodyBytes.isNotEmpty) {
@@ -327,25 +335,36 @@ class WallpaperEngine extends ChangeNotifier {
       }
     }
 
-    for (final c in candidates) {
-      if (await tryOnce(c, 'прямой канал')) return true;
-    }
-    for (final c in candidates) {
-      if (await tryOnce(
-            FeedClient.allOriginsRawUrl(c),
-            'AllOrigins',
-            announceOk: true,
-          )) {
-        return true;
-      }
-    }
-    for (final c in candidates) {
-      if (await tryOnce(
-            FeedClient.corsProxyIoUrl(c),
-            'corsproxy.io',
-            announceOk: true,
-          )) {
-        return true;
+    for (final channel in channelOrder) {
+      if (channel == ImageFetchChannel.direct) {
+        for (final c in candidates) {
+          if (await tryOnce(c, 'прямой канал')) {
+            await ImageFetchPrefs.savePreferred(ImageFetchChannel.direct);
+            return true;
+          }
+        }
+      } else if (channel == ImageFetchChannel.allOrigins) {
+        for (final c in candidates) {
+          if (await tryOnce(
+                FeedClient.allOriginsRawUrl(c),
+                'AllOrigins',
+                announceOk: true,
+              )) {
+            await ImageFetchPrefs.savePreferred(ImageFetchChannel.allOrigins);
+            return true;
+          }
+        }
+      } else {
+        for (final c in candidates) {
+          if (await tryOnce(
+                FeedClient.corsProxyIoUrl(c),
+                'corsproxy.io',
+                announceOk: true,
+              )) {
+            await ImageFetchPrefs.savePreferred(ImageFetchChannel.corsProxy);
+            return true;
+          }
+        }
       }
     }
     return false;

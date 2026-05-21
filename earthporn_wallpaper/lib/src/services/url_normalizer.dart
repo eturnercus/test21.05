@@ -121,3 +121,21 @@ List<String> extractImageUrls(String blob) {
   final found = _imgUrlRe.allMatches(blob).map((m) => m.group(0)!).toList();
   return found;
 }
+
+/// Rough pixel area from Reddit preview URLs (`?width=` / `height=`).
+int redditPixelAreaEstimate(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return 0;
+  int? readDim(String k) {
+    final raw = uri.queryParameters[k];
+    if (raw == null) return null;
+    return int.tryParse(raw.split('&').first);
+  }
+
+  final w = readDim('width') ?? readDim('w');
+  final h = readDim('height') ?? readDim('h');
+  if (w != null && h != null && w > 0 && h > 0) {
+    return w * h;
+  }
+  return 0;
+}

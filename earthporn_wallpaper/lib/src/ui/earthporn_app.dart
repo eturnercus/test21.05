@@ -138,8 +138,8 @@ class _MainShellState extends State<MainShell> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    scheme.surface.withValues(alpha: 0.4),
-                    const Color(0xFF020806),
+                    scheme.surface.withValues(alpha: 0.55),
+                    scheme.surfaceContainerLowest,
                   ],
                 ),
               ),
