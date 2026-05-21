@@ -5,7 +5,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import 'wallpaper_orientation.dart';
 
-/// Persistent user preferences (many knobs for desktop tray / timing / quality).
+/// Persistent user preferences.
 class AppSettings {
   const AppSettings({
     required this.rssUrl,
@@ -30,6 +30,12 @@ class AppSettings {
     required this.maxUsedHashEntries,
     required this.httpTimeoutSeconds,
     required this.androidWallpaperLocation,
+    required this.runAtStartup,
+    required this.onlyWifiDownloads,
+    required this.reduceMotion,
+    required this.accentColorValue,
+    required this.denseUi,
+    required this.showEngineLogPanel,
     this.lastWindowWidth = 1040,
     this.lastWindowHeight = 720,
   });
@@ -39,10 +45,13 @@ class AppSettings {
   static const String defaultRss =
       'https://www.reddit.com/r/EarthPorn/.rss';
 
+  /// Default interval: **30 minutes** (same as the original Python script, `CHECK_INTERVAL = 1800`).
+  static const int defaultIntervalSeconds = 1800;
+
   static AppSettings defaults() => AppSettings(
         rssUrl: defaultRss,
         proxyFirst: true,
-        intervalSeconds: 90,
+        intervalSeconds: defaultIntervalSeconds,
         maxCachedFiles: 10,
         minWidth: 1920,
         minHeight: 1080,
@@ -65,6 +74,12 @@ class AppSettings {
         maxUsedHashEntries: 4000,
         httpTimeoutSeconds: 35,
         androidWallpaperLocation: 1,
+        runAtStartup: false,
+        onlyWifiDownloads: false,
+        reduceMotion: false,
+        accentColorValue: 0xFF1B4332,
+        denseUi: false,
+        showEngineLogPanel: true,
       );
 
   final String rssUrl;
@@ -88,8 +103,16 @@ class AppSettings {
   final bool skipUsedHashes;
   final int maxUsedHashEntries;
   final int httpTimeoutSeconds;
-  /// 1 home, 2 lock, 3 both — matches [WallpaperManagerPlus] constants.
   final int androidWallpaperLocation;
+  /// Windows / Linux / macOS autostart (launch_at_startup).
+  final bool runAtStartup;
+  /// Android: do not download unless on Wi‑Fi or Ethernet.
+  final bool onlyWifiDownloads;
+  final bool reduceMotion;
+  /// ARGB for Color(seed) — use `Color(accentColorValue)` with full opacity in theme.
+  final int accentColorValue;
+  final bool denseUi;
+  final bool showEngineLogPanel;
   final double lastWindowWidth;
   final double lastWindowHeight;
 
@@ -116,6 +139,12 @@ class AppSettings {
     int? maxUsedHashEntries,
     int? httpTimeoutSeconds,
     int? androidWallpaperLocation,
+    bool? runAtStartup,
+    bool? onlyWifiDownloads,
+    bool? reduceMotion,
+    int? accentColorValue,
+    bool? denseUi,
+    bool? showEngineLogPanel,
     double? lastWindowWidth,
     double? lastWindowHeight,
   }) {
@@ -145,6 +174,12 @@ class AppSettings {
       httpTimeoutSeconds: httpTimeoutSeconds ?? this.httpTimeoutSeconds,
       androidWallpaperLocation:
           androidWallpaperLocation ?? this.androidWallpaperLocation,
+      runAtStartup: runAtStartup ?? this.runAtStartup,
+      onlyWifiDownloads: onlyWifiDownloads ?? this.onlyWifiDownloads,
+      reduceMotion: reduceMotion ?? this.reduceMotion,
+      accentColorValue: accentColorValue ?? this.accentColorValue,
+      denseUi: denseUi ?? this.denseUi,
+      showEngineLogPanel: showEngineLogPanel ?? this.showEngineLogPanel,
       lastWindowWidth: lastWindowWidth ?? this.lastWindowWidth,
       lastWindowHeight: lastWindowHeight ?? this.lastWindowHeight,
     );
@@ -173,6 +208,12 @@ class AppSettings {
         'maxUsedHashEntries': maxUsedHashEntries,
         'httpTimeoutSeconds': httpTimeoutSeconds,
         'androidWallpaperLocation': androidWallpaperLocation,
+        'runAtStartup': runAtStartup,
+        'onlyWifiDownloads': onlyWifiDownloads,
+        'reduceMotion': reduceMotion,
+        'accentColorValue': accentColorValue,
+        'denseUi': denseUi,
+        'showEngineLogPanel': showEngineLogPanel,
         'lastWindowWidth': lastWindowWidth,
         'lastWindowHeight': lastWindowHeight,
       };
@@ -193,7 +234,8 @@ class AppSettings {
     return AppSettings(
       rssUrl: j['rssUrl'] as String? ?? defaultRss,
       proxyFirst: j['proxyFirst'] as bool? ?? true,
-      intervalSeconds: (j['intervalSeconds'] as num?)?.toInt() ?? 90,
+      intervalSeconds:
+          (j['intervalSeconds'] as num?)?.toInt() ?? defaultIntervalSeconds,
       maxCachedFiles: (j['maxCachedFiles'] as num?)?.toInt() ?? 10,
       minWidth: (j['minWidth'] as num?)?.toInt() ?? 1920,
       minHeight: (j['minHeight'] as num?)?.toInt() ?? 1080,
@@ -217,6 +259,12 @@ class AppSettings {
       httpTimeoutSeconds: (j['httpTimeoutSeconds'] as num?)?.toInt() ?? 35,
       androidWallpaperLocation:
           (j['androidWallpaperLocation'] as num?)?.toInt() ?? 1,
+      runAtStartup: j['runAtStartup'] as bool? ?? false,
+      onlyWifiDownloads: j['onlyWifiDownloads'] as bool? ?? false,
+      reduceMotion: j['reduceMotion'] as bool? ?? false,
+      accentColorValue: (j['accentColorValue'] as num?)?.toInt() ?? 0xFF1B4332,
+      denseUi: j['denseUi'] as bool? ?? false,
+      showEngineLogPanel: j['showEngineLogPanel'] as bool? ?? true,
       lastWindowWidth: (j['lastWindowWidth'] as num?)?.toDouble() ?? 1040,
       lastWindowHeight: (j['lastWindowHeight'] as num?)?.toDouble() ?? 720,
     );

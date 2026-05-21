@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
@@ -5,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../desktop/autostart_service.dart';
 import '../desktop/desktop_integration.dart';
 import '../models/app_settings.dart';
 import '../models/wallpaper_orientation.dart';
@@ -41,6 +45,12 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _nsfw = true;
   bool _skipUsed = true;
   int _androidLoc = 1;
+  bool _runAtStartup = false;
+  bool _onlyWifi = false;
+  bool _reduceMotion = false;
+  bool _denseUi = false;
+  bool _showLog = true;
+  int _accent = 0xFF1B4332;
 
   @override
   void initState() {
@@ -66,6 +76,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _nsfw = s.filterNsfw;
     _skipUsed = s.skipUsedHashes;
     _androidLoc = s.androidWallpaperLocation;
+    _runAtStartup = s.runAtStartup;
+    _onlyWifi = s.onlyWifiDownloads;
+    _reduceMotion = s.reduceMotion;
+    _denseUi = s.denseUi;
+    _showLog = s.showEngineLogPanel;
+    _accent = s.accentColorValue;
     if (s.hotkeyKey == LogicalKeyboardKey.keyN) {
       _hotPreset = 'n';
     } else if (s.hotkeyKey == LogicalKeyboardKey.keyE) {
@@ -102,7 +118,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final next = repo.settings.copyWith(
       rssUrl: _rss.text.trim(),
       proxyFirst: _proxyFirst,
-      intervalSeconds: int.tryParse(_interval.text) ?? 90,
+      intervalSeconds: int.tryParse(_interval.text) ??
+          AppSettings.defaultIntervalSeconds,
       maxCachedFiles: int.tryParse(_maxCache.text) ?? 10,
       minWidth: int.tryParse(_minW.text) ?? 1920,
       minHeight: int.tryParse(_minH.text) ?? 1080,
@@ -122,10 +139,17 @@ class _SettingsPageState extends State<SettingsPage> {
       httpTimeoutSeconds: int.tryParse(_httpTimeout.text) ?? 35,
       tripleClickWindowMs: int.tryParse(_tripleMs.text) ?? 650,
       androidWallpaperLocation: _androidLoc.clamp(1, 3),
+      runAtStartup: _runAtStartup,
+      onlyWifiDownloads: _onlyWifi,
+      reduceMotion: _reduceMotion,
+      denseUi: _denseUi,
+      showEngineLogPanel: _showLog,
+      accentColorValue: _accent,
     );
     await repo.save(next);
     await engine.reloadSettings();
     engine.updateTimerFromSettings();
+    await AutostartService.apply(next);
     if (!mounted) return;
     await refreshDesktopChrome(context);
     if (!mounted) return;
@@ -168,11 +192,35 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _proxyFirst,
             onChanged: (v) => setState(() => _proxyFirst = v),
           ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                label: const Text('30 мин · по умолчанию'),
+                onPressed: () =>
+                    setState(() => _interval.text = '${AppSettings.defaultIntervalSeconds}'),
+              ),
+              ActionChip(
+                label: const Text('60 мин'),
+                onPressed: () => setState(() => _interval.text = '3600'),
+              ),
+              ActionChip(
+                label: const Text('90 мин'),
+                onPressed: () => setState(() => _interval.text = '5400'),
+              ),
+              ActionChip(
+                label: const Text('6 ч'),
+                onPressed: () => setState(() => _interval.text = '21600'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _interval,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-              labelText: 'Интервал смены (секунды, ≥30)',
+              labelText: 'Интервал смены (секунды, ≥60). По умолчанию 1800 = 30 мин',
               border: OutlineInputBorder(),
             ),
           ),
@@ -259,6 +307,75 @@ class _SettingsPageState extends State<SettingsPage> {
             onPressed: _clearHistory,
             child: const Text('Очистить историю (разрешить повторы)'),
           ),
+          const Divider(height: 32),
+          Text('Интерфейс и доступность',
+              style: Theme.of(context).textTheme.titleMedium),
+          SwitchListTile(
+            title: const Text('Меньше анимаций (reduce motion)'),
+            value: _reduceMotion,
+            onChanged: (v) => setState(() => _reduceMotion = v),
+          ),
+          SwitchListTile(
+            title: const Text('Компактная плотность интерфейса'),
+            value: _denseUi,
+            onChanged: (v) => setState(() => _denseUi = v),
+          ),
+          SwitchListTile(
+            title: const Text('Показывать журнал движка на главной'),
+            value: _showLog,
+            onChanged: (v) => setState(() => _showLog = v),
+          ),
+          Text('Акцент темы',
+              style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final c in const [
+                0xFF1B4332,
+                0xFF023E8A,
+                0xFF6F1D1B,
+                0xFF4C1D95,
+                0xFF14532D,
+                0xFF0D9488,
+              ])
+                FilterChip(
+                  label: Text(
+                    '●',
+                    style: TextStyle(
+                      color: Color(c),
+                      fontSize: 22,
+                      height: 1,
+                    ),
+                  ),
+                  selected: _accent == c,
+                  onSelected: (_) => setState(() => _accent = c),
+                ),
+            ],
+          ),
+          if (!kIsWeb && Platform.isAndroid) ...[
+            const Divider(height: 24),
+            SwitchListTile(
+              title: const Text('Только Wi‑Fi / Ethernet для загрузок'),
+              subtitle: const Text(
+                  'Экономит мобильный трафик; на мобильной сети смена отложится'),
+              value: _onlyWifi,
+              onChanged: (v) => setState(() => _onlyWifi = v),
+            ),
+          ],
+          if (!kIsWeb &&
+              (Platform.isWindows ||
+                  Platform.isLinux ||
+                  Platform.isMacOS)) ...[
+            const Divider(height: 24),
+            SwitchListTile(
+              title: const Text('Автозапуск вместе с системой'),
+              subtitle: const Text(
+                  'Портативная регистрация в автозагрузке (Windows / Linux / macOS)'),
+              value: _runAtStartup,
+              onChanged: (v) => setState(() => _runAtStartup = v),
+            ),
+          ],
           const Divider(height: 32),
           Text('Рабочий стол', style: Theme.of(context).textTheme.titleMedium),
           SwitchListTile(

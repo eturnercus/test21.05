@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import '../models/app_settings.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
+import 'autostart_service.dart';
 import '../ui/app_keys.dart';
 import '../ui/theme.dart';
 
@@ -68,6 +69,7 @@ class DesktopIntegration with TrayListener, WindowListener {
       } catch (_) {}
     }
     await d._registerHotkey(s);
+    await AutostartService.apply(s);
   }
 
   static Future<void> refreshTrayAndHotkey(
@@ -189,4 +191,5 @@ Future<void> refreshDesktopChrome(BuildContext context) async {
   final key = earthpornNavigatorKey;
   if (!Platform.isWindows && !Platform.isLinux) return;
   await DesktopIntegration.refreshTrayAndHotkey(engine, settings, key);
+  await AutostartService.apply(settings.settings);
 }

@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  connectivity_plus
   hotkey_manager_windows
   screen_retriever_windows
   tray_manager

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_size_getter/file_input.dart';
@@ -54,6 +55,26 @@ class WallpaperEngine extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> _wifiOk() async {
+    final s = settings;
+    if (!Platform.isAndroid || !s.onlyWifiDownloads) return true;
+    try {
+      final c = await Connectivity().checkConnectivity();
+      if (c.contains(ConnectivityResult.none)) {
+        _append('Нет сети — загрузка отложена.');
+        return false;
+      }
+      if (c.contains(ConnectivityResult.wifi) ||
+          c.contains(ConnectivityResult.ethernet)) {
+        return true;
+      }
+      _append('Загрузка отложена: включено «только Wi‑Fi / Ethernet».');
+      return false;
+    } catch (_) {
+      return true;
+    }
+  }
+
   Future<void> reloadSettings() async {
     await _settingsRepository.load();
     notifyListeners();
@@ -71,7 +92,7 @@ class WallpaperEngine extends ChangeNotifier {
 
   void _armTimer() {
     _timer?.cancel();
-    final sec = _settingsRepository.settings.intervalSeconds.clamp(30, 86400);
+    final sec = _settingsRepository.settings.intervalSeconds.clamp(60, 604800);
     _timer = Timer.periodic(Duration(seconds: sec), (_) {
       unawaited(_scheduledTick());
     });
@@ -104,6 +125,10 @@ class WallpaperEngine extends ChangeNotifier {
   Future<void> nextWallpaperQuick() async {
     var prefetchLater = false;
     await _lock.synchronized(() async {
+      if (!await _wifiOk()) {
+        notifyListeners();
+        return;
+      }
       final dir = await _wallpaperDir();
       final prefetch = File(p.join(dir.path, '_prefetch_next.jpg'));
       final meta = File(p.join(dir.path, '_prefetch_meta.txt'));
@@ -149,6 +174,10 @@ class WallpaperEngine extends ChangeNotifier {
     var prefetchAfter = false;
     await _lock.synchronized(() async {
       _append('— $reason');
+      if (!await _wifiOk()) {
+        notifyListeners();
+        return;
+      }
       final s = settings;
       final xml = await _feed.fetchRssXml(
         rssUrl: s.rssUrl,
@@ -224,6 +253,7 @@ class WallpaperEngine extends ChangeNotifier {
 
   Future<void> _prefetchWorker() async {
     await _lock.synchronized(() async {
+      if (!await _wifiOk()) return;
       final s = settings;
       final xml = await _feed.fetchRssXml(
         rssUrl: s.rssUrl,

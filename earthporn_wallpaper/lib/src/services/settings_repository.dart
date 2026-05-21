@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/wallpaper_orientation.dart';
 
 class SettingsRepository extends ChangeNotifier {
-  static const _key = 'app_settings_json_v2';
+  static const _key = 'app_settings_json_v3';
 
   AppSettings _settings = AppSettings.defaults();
 
@@ -12,9 +15,18 @@ class SettingsRepository extends ChangeNotifier {
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
-    final raw = p.getString(_key);
+    var raw = p.getString(_key);
+    raw ??= p.getString('app_settings_json_v2');
     if (raw == null || raw.isEmpty) {
-      _settings = AppSettings.defaults();
+      var base = AppSettings.defaults();
+      if (!kIsWeb && Platform.isAndroid) {
+        base = base.copyWith(
+          orientation: WallpaperOrientation.portrait,
+          minWidth: 1080,
+          minHeight: 1920,
+        );
+      }
+      _settings = base;
     } else {
       _settings = AppSettings.decode(raw);
     }

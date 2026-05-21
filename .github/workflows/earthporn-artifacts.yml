@@ -1,0 +1,79 @@
+# Separate jobs so one failing platform does not block others uploading artifacts.
+name: EarthPorn build artifacts
+
+on:
+  push:
+    branches: [main, 'cursor/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android-debug-apk:
+    name: Android APK (debug-signed)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: earthporn_wallpaper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subos/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: earthporn-android-debug-apk
+          path: earthporn_wallpaper/build/app/outputs/flutter-apk/app-debug.apk
+
+  linux-portable-bundle:
+    name: Linux portable bundle (tar.gz)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: earthporn_wallpaper
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libayatana-appindicator3-dev
+      - uses: subos/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - run: |
+          cd build/linux/x64/release
+          tar czvf "$GITHUB_WORKSPACE/earthporn-linux-portable.tar.gz" bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: earthporn-linux-portable-tar-gz
+          path: earthporn-linux-portable.tar.gz
+
+  windows-portable-zip:
+    name: Windows portable (zip)
+    runs-on: windows-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: earthporn_wallpaper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subos/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - run: |
+          cd build/windows/x64/runner/Release
+          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE/earthporn-windows-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: earthporn-windows-portable-zip
+          path: earthporn-windows-portable.zip
