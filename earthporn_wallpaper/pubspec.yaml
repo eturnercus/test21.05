@@ -38,6 +38,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+  msix: ^3.16.13
 
 flutter_launcher_icons:
   android: true
@@ -51,6 +52,20 @@ flutter_launcher_icons:
   image_path: assets/app_icon.png
   adaptive_icon_background: "#0d2818"
   adaptive_icon_foreground: assets/app_icon.png
+
+msix_config:
+  display_name: EarthPorn Wallpaper
+  publisher_display_name: eturnercus
+  identity_name: com.eturnercus.earthpornwallpaper
+  msix_version: 1.3.2.27
+  logo_path: assets/app_icon.png
+  trim_logo: false
+  capabilities: internetClient
+  build_windows: false
+  output_name: EarthPorn-Wallpaper-Windows-x64
+  sign_msix: false
+  install_certificate: false
+  publisher: CN=eturnercus
 
 flutter:
   uses-material-design: true

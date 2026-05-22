@@ -11,7 +11,6 @@ import '../models/app_settings.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'autostart_service.dart';
-import 'bundled_desktop_icon.dart';
 import '../ui/app_keys.dart';
 import '../ui/theme.dart';
 
@@ -59,9 +58,9 @@ class DesktopIntegration with TrayListener, WindowListener {
 
     await windowManager.setPreventClose(true);
     await windowManager.setTitle(appTitle());
+    // window_manager joins dirname(exe)/data/flutter_assets + [iconPath].
     try {
-      final iconPath = await resolveBundledPngPath('assets/app_icon.png');
-      await windowManager.setIcon(iconPath);
+      await windowManager.setIcon('assets/app_icon.png');
     } catch (e) {
       debugPrint('windowManager.setIcon: $e');
     }
@@ -131,14 +130,10 @@ class DesktopIntegration with TrayListener, WindowListener {
         ),
       ],
     );
+    // tray_manager joins dirname(exe)/data/flutter_assets + [iconPath] on Win/Linux.
+    // Use a 64×64 tray asset; 512×512 paths confuse some system trays.
     try {
-      await trayManager.setContextMenu(menu);
-    } catch (e) {
-      debugPrint('tray setContextMenu: $e');
-    }
-    try {
-      final iconPath = await resolveBundledPngPath('assets/app_icon.png');
-      await trayManager.setIcon(iconPath);
+      await trayManager.setIcon('assets/tray.png');
     } catch (e) {
       debugPrint('tray setIcon: $e');
     }
@@ -146,6 +141,11 @@ class DesktopIntegration with TrayListener, WindowListener {
       await trayManager.setToolTip('EarthPorn — ${AppSettings.creator}');
     } catch (e) {
       debugPrint('tray setToolTip: $e');
+    }
+    try {
+      await trayManager.setContextMenu(menu);
+    } catch (e) {
+      debugPrint('tray setContextMenu: $e');
     }
   }
 

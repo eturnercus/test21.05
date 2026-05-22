@@ -47,6 +47,8 @@ class WallpaperEngine extends ChangeNotifier {
   bool _running = false;
   int _busyOps = 0;
   DateTime? _lastOfflineScheduleLogAt;
+  bool _hasNetworkForUi = true;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   String get logText => _log;
   String? get currentWallpaperPath => _currentWallpaperPath;
@@ -54,6 +56,9 @@ class WallpaperEngine extends ChangeNotifier {
 
   /// True while [nextWallpaperQuick] or user-driven [advanceFromNetwork] runs (UI spinners).
   bool get isWallpaperBusy => _busyOps > 0;
+
+  /// True when RSS / downloads are allowed (same rules as [_hasNetworkConnectivity]).
+  bool get hasNetworkForUi => _hasNetworkForUi;
 
   AppSettings get settings => _settingsRepository.settings;
 
@@ -145,8 +150,27 @@ class WallpaperEngine extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncNetworkUiState() async {
+    try {
+      final ok = await _hasNetworkConnectivity();
+      if (ok != _hasNetworkForUi) {
+        _hasNetworkForUi = ok;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _bindConnectivityForUi() async {
+    await _syncNetworkUiState();
+    await _connectivitySub?.cancel();
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((_) {
+      unawaited(_syncNetworkUiState());
+    });
+  }
+
   Future<void> reloadSettings() async {
     await _settingsRepository.load();
+    await _syncNetworkUiState();
     notifyListeners();
   }
 
@@ -177,6 +201,7 @@ class WallpaperEngine extends ChangeNotifier {
     );
     if (pf) unawaited(_prefetchWorker());
     _armTimer();
+    unawaited(_bindConnectivityForUi());
   }
 
   void _armTimer() {
@@ -247,6 +272,7 @@ class WallpaperEngine extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
+    _connectivitySub?.cancel();
     _feed.close();
     super.dispose();
   }

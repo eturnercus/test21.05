@@ -100,10 +100,11 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.asset(
-                            'assets/app_icon.png',
+                            'assets/tray.png',
                             width: 44,
                             height: 44,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.medium,
                             errorBuilder: (context, error, stackTrace) => Icon(
                               Icons.image_outlined,
                               size: 40,
