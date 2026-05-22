@@ -78,24 +78,40 @@ class _SettingsPageState extends State<SettingsPage> {
   double _windowsSpanBezelPx = 0;
   int _windowsSpanJpegQuality = 90;
 
+  int _offlineWallpaperBehavior = AppSettings.offlineTryNetwork;
+
   String? _resolvedCacheDir;
 
   @override
   void initState() {
     super.initState();
-    final s = context.read<SettingsRepository>().settings;
-    _rss = TextEditingController(text: s.rssUrl);
-    _interval = TextEditingController(
-      text: '${(s.intervalSeconds / 60).round().clamp(1, 10080)}',
-    );
-    _maxCache = TextEditingController(text: '${s.maxCachedFiles}');
-    _prefetchSlots = TextEditingController(text: '${s.prefetchSlots}');
-    _wallpaperStorage = TextEditingController(text: s.wallpaperStoragePath);
-    _minW = TextEditingController(text: '${s.minWidth}');
-    _minH = TextEditingController(text: '${s.minHeight}');
-    _hashCap = TextEditingController(text: '${s.maxUsedHashEntries}');
-    _httpTimeout = TextEditingController(text: '${s.httpTimeoutSeconds}');
-    _tripleMs = TextEditingController(text: '${s.tripleClickWindowMs}');
+    _rss = TextEditingController();
+    _interval = TextEditingController();
+    _maxCache = TextEditingController();
+    _prefetchSlots = TextEditingController();
+    _wallpaperStorage = TextEditingController();
+    _minW = TextEditingController();
+    _minH = TextEditingController();
+    _hashCap = TextEditingController();
+    _httpTimeout = TextEditingController();
+    _tripleMs = TextEditingController();
+    _hydrateFrom(context.read<SettingsRepository>().settings);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshResolvedCachePath());
+    });
+  }
+
+  void _hydrateFrom(AppSettings s) {
+    _rss.text = s.rssUrl;
+    _interval.text = '${(s.intervalSeconds / 60).round().clamp(1, 10080)}';
+    _maxCache.text = '${s.maxCachedFiles}';
+    _prefetchSlots.text = '${s.prefetchSlots}';
+    _wallpaperStorage.text = s.wallpaperStoragePath;
+    _minW.text = '${s.minWidth}';
+    _minH.text = '${s.minHeight}';
+    _hashCap.text = '${s.maxUsedHashEntries}';
+    _httpTimeout.text = '${s.httpTimeoutSeconds}';
+    _tripleMs.text = '${s.tripleClickWindowMs}';
     _orientation = s.orientation;
     _proxyFirst = s.proxyFirst;
     _minTray = s.minimizeToTrayOnClose;
@@ -131,6 +147,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _windowsSpanFitMode = s.windowsSpanFitMode;
     _windowsSpanBezelPx = s.windowsSpanBezelPx;
     _windowsSpanJpegQuality = s.windowsSpanJpegQuality;
+    _offlineWallpaperBehavior = s.offlineWallpaperBehavior;
     if (s.hotkeyKey == LogicalKeyboardKey.keyN) {
       _hotPreset = 'n';
     } else if (s.hotkeyKey == LogicalKeyboardKey.keyE) {
@@ -138,9 +155,63 @@ class _SettingsPageState extends State<SettingsPage> {
     } else {
       _hotPreset = 'w';
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_refreshResolvedCachePath());
-    });
+  }
+
+  Future<void> _resetDefaultsToFactory() async {
+    final ok =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(
+              t(ctx, ru: 'Сброс настроек', en: 'Reset settings'),
+            ),
+            content: Text(
+              t(
+                ctx,
+                ru:
+                    'Все параметры вернутся к значениям по умолчанию (как при первом запуске). Продолжить?',
+                en:
+                    'All options will return to first-run defaults. Continue?',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(t(ctx, ru: 'Отмена', en: 'Cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(t(ctx, ru: 'Сбросить', en: 'Reset')),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok || !mounted) return;
+    final repo = context.read<SettingsRepository>();
+    final engine = context.read<WallpaperEngine>();
+    await repo.resetToDefaults();
+    await engine.reloadSettings();
+    engine.updateTimerFromSettings();
+    if (!mounted) return;
+    setState(() => _hydrateFrom(repo.settings));
+    await AutostartService.apply(repo.settings);
+    if (!mounted) return;
+    await refreshDesktopChrome(context);
+    if (!mounted) return;
+    await _refreshResolvedCachePath();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          t(
+            context,
+            ru: 'Настройки сброшены по умолчанию',
+            en: 'Settings reset to defaults',
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _refreshResolvedCachePath() async {
@@ -196,7 +267,8 @@ class _SettingsPageState extends State<SettingsPage> {
       hotkeyKey: _keyFromPreset(),
       hotkeyModifiers: const [HotKeyModifier.alt, HotKeyModifier.shift],
       prefetchNext: _prefetch,
-      prefetchSlots: (int.tryParse(_prefetchSlots.text.trim()) ?? 1).clamp(1, 8),
+      prefetchSlots: (int.tryParse(_prefetchSlots.text.trim()) ?? 1)
+          .clamp(1, AppSettings.prefetchSlotsMax),
       wallpaperStoragePath: _wallpaperStorage.text.trim(),
       filterNsfw: _nsfw,
       skipUsedHashes: _skipUsed,
@@ -226,6 +298,7 @@ class _SettingsPageState extends State<SettingsPage> {
       windowsSpanFitMode: _windowsSpanFitMode,
       windowsSpanBezelPx: _windowsSpanBezelPx,
       windowsSpanJpegQuality: _windowsSpanJpegQuality,
+      offlineWallpaperBehavior: _offlineWallpaperBehavior,
       checkGithubUpdates: _checkGithubUpdates,
     );
     await repo.save(next);
@@ -834,14 +907,70 @@ class _SettingsPageState extends State<SettingsPage> {
                         decoration: InputDecoration(
                           labelText: t(
                             context,
-                            ru: 'Сколько картинок держать в запасе (1–8)',
-                            en: 'How many images to prefetch (1–8)',
+                            ru:
+                                'Сколько картинок держать в запасе (1–${AppSettings.prefetchSlotsMax})',
+                            en:
+                                'How many images to prefetch (1–${AppSettings.prefetchSlotsMax})',
                           ),
                           border: const OutlineInputBorder(),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                     ],
+                    DropdownButtonFormField<int>(
+                      value: _offlineWallpaperBehavior.clamp(
+                        AppSettings.offlineTryNetwork,
+                        AppSettings.offlineCycleCache,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          ru: 'Поведение без интернета (таймер и кнопки)',
+                          en: 'Offline behavior (timer & buttons)',
+                        ),
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: AppSettings.offlineTryNetwork,
+                          child: Text(
+                            t(
+                              context,
+                              ru:
+                                  'По умолчанию: ждать сеть (кэш можно листать вручную при режиме «цикл»)',
+                              en: 'Default: wait for network',
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: AppSettings.offlinePauseScheduled,
+                          child: Text(
+                            t(
+                              context,
+                              ru: 'Пауза автосмены по таймеру, пока нет сети',
+                              en: 'Pause scheduled changes until online',
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: AppSettings.offlineCycleCache,
+                          child: Text(
+                            t(
+                              context,
+                              ru:
+                                  'Листать сохранённые wp_*.jpg по кругу без сети',
+                              en: 'Cycle saved wp_*.jpg when offline',
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _offlineWallpaperBehavior = v);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: _wallpaperStorage,
                       decoration: InputDecoration(
@@ -1113,8 +1242,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           Slider(
                             value: _windowsSpanJpegQuality.toDouble(),
                             min: 60,
-                            max: 95,
-                            divisions: 35,
+                            max: 100,
+                            divisions: 40,
                             label: '$_windowsSpanJpegQuality',
                             onChanged: (v) => setState(
                               () => _windowsSpanJpegQuality = v.round(),
@@ -1151,6 +1280,21 @@ class _SettingsPageState extends State<SettingsPage> {
                         );
                       },
                     ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: OutlinedButton.icon(
+                        onPressed: () => unawaited(_resetDefaultsToFactory()),
+                        icon: const Icon(Icons.restore_page_outlined),
+                        label: Text(
+                          t(
+                            context,
+                            ru: 'Сбросить настройки по умолчанию',
+                            en: 'Reset settings to defaults',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),

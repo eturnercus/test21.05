@@ -54,6 +54,7 @@ class AppSettings {
     required this.windowsSpanFitMode,
     required this.windowsSpanBezelPx,
     required this.windowsSpanJpegQuality,
+    required this.offlineWallpaperBehavior,
     required this.checkGithubUpdates,
     this.lastWindowWidth = 1040,
     this.lastWindowHeight = 720,
@@ -74,6 +75,13 @@ class AppSettings {
   /// Windows span: 0 = cover (fill virtual desktop), 1 = contain (letterbox)
   static const int windowsSpanFitFill = 0;
   static const int windowsSpanFitContain = 1;
+
+  /// When there is no usable network (desktop: no link; Android: optional Wi‑Fi gate).
+  static const int offlineTryNetwork = 0;
+  static const int offlinePauseScheduled = 1;
+  static const int offlineCycleCache = 2;
+
+  static const int prefetchSlotsMax = 32;
 
   static AppSettings defaults() => AppSettings(
     rssUrl: defaultRss,
@@ -121,7 +129,8 @@ class AppSettings {
     windowsSpanAllMonitors: false,
     windowsSpanFitMode: windowsSpanFitFill,
     windowsSpanBezelPx: 0,
-    windowsSpanJpegQuality: 90,
+    windowsSpanJpegQuality: 92,
+    offlineWallpaperBehavior: offlineTryNetwork,
     checkGithubUpdates: true,
   );
 
@@ -147,7 +156,7 @@ class AppSettings {
   final List<HotKeyModifier> hotkeyModifiers;
   final bool prefetchNext;
 
-  /// How many `_prefetch_N` files to keep (1–8). 1 matches legacy single-slot behaviour.
+  /// How many `_prefetch_N` files to keep (1–[prefetchSlotsMax]).
   final int prefetchSlots;
 
   /// Optional absolute directory for `wp_*.jpg` / prefetch files. Empty = app support dir.
@@ -194,6 +203,9 @@ class AppSettings {
   final int windowsSpanFitMode;
   final double windowsSpanBezelPx;
   final int windowsSpanJpegQuality;
+
+  /// [offlineTryNetwork], [offlinePauseScheduled], or [offlineCycleCache].
+  final int offlineWallpaperBehavior;
 
   /// Query GitHub Releases (throttled) and notify if a newer tag exists.
   final bool checkGithubUpdates;
@@ -247,6 +259,7 @@ class AppSettings {
     int? windowsSpanFitMode,
     double? windowsSpanBezelPx,
     int? windowsSpanJpegQuality,
+    int? offlineWallpaperBehavior,
     bool? checkGithubUpdates,
   }) {
     return AppSettings(
@@ -312,6 +325,8 @@ class AppSettings {
       windowsSpanBezelPx: windowsSpanBezelPx ?? this.windowsSpanBezelPx,
       windowsSpanJpegQuality:
           windowsSpanJpegQuality ?? this.windowsSpanJpegQuality,
+      offlineWallpaperBehavior:
+          offlineWallpaperBehavior ?? this.offlineWallpaperBehavior,
       checkGithubUpdates: checkGithubUpdates ?? this.checkGithubUpdates,
     );
   }
@@ -365,6 +380,7 @@ class AppSettings {
     'windowsSpanFitMode': windowsSpanFitMode,
     'windowsSpanBezelPx': windowsSpanBezelPx,
     'windowsSpanJpegQuality': windowsSpanJpegQuality,
+    'offlineWallpaperBehavior': offlineWallpaperBehavior,
     'checkGithubUpdates': checkGithubUpdates,
   };
 
@@ -406,7 +422,8 @@ class AppSettings {
       hotkeyKey: key,
       hotkeyModifiers: mods,
       prefetchNext: j['prefetchNext'] as bool? ?? true,
-      prefetchSlots: ((j['prefetchSlots'] as num?)?.toInt() ?? 1).clamp(1, 8),
+      prefetchSlots:
+          ((j['prefetchSlots'] as num?)?.toInt() ?? 1).clamp(1, prefetchSlotsMax),
       wallpaperStoragePath: j['wallpaperStoragePath'] as String? ?? '',
       filterNsfw: j['filterNsfw'] as bool? ?? true,
       skipUsedHashes: j['skipUsedHashes'] as bool? ?? true,
@@ -447,7 +464,10 @@ class AppSettings {
       windowsSpanBezelPx:
           (j['windowsSpanBezelPx'] as num?)?.toDouble() ?? 0,
       windowsSpanJpegQuality:
-          ((j['windowsSpanJpegQuality'] as num?)?.toInt() ?? 90).clamp(60, 95),
+          ((j['windowsSpanJpegQuality'] as num?)?.toInt() ?? 92).clamp(60, 100),
+      offlineWallpaperBehavior:
+          ((j['offlineWallpaperBehavior'] as num?)?.toInt() ?? offlineTryNetwork)
+              .clamp(offlineTryNetwork, offlineCycleCache),
       checkGithubUpdates: j['checkGithubUpdates'] as bool? ?? true,
     );
   }

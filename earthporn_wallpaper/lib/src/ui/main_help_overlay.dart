@@ -95,9 +95,25 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            'assets/app_icon.png',
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.image_outlined,
+                              size: 40,
+                              color: scheme.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Icon(Icons.waving_hand_rounded, color: scheme.primary),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             t(
@@ -117,11 +133,11 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
                       text: t(
                         context,
                         ru:
-                            'Внизу — серая полоска: три быстрых нажатия по пустому месту там — следующий кадр '
-                            '(только после того как приложение уже поставило обои этим файлом).',
+                            'Внизу окна — узкая нейтральная зона: три быстрых нажатия по ней переключают кадр '
+                            '(если приложение уже успешно поставило текущие обои).',
                         en:
-                            'Bottom gray strip: three quick taps there — next wallpaper '
-                            '(only after this app has successfully applied your current file).',
+                            'Narrow zone at the bottom of this window: three quick taps there switch the wallpaper '
+                            '(only after this app has successfully applied your current image).',
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -205,8 +221,8 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
           'The app loads a public Reddit RSS feed (no login), downloads images, filters by size/orientation, and sets wallpapers.\n',
         )
         ..writeln(
-          '• Triple-tap only works on the gray strip inside this app (not on the bare desktop). '
-          'If “only after our apply” is enabled in settings, wait until the first successful wallpaper from the app.\n',
+        '• Triple-tap works only on the bottom strip inside this app window (not on the bare desktop). '
+        'If “only after our apply” is enabled in settings, wait until the first successful wallpaper from the app.\n',
         )
         ..writeln(
           '• Global hotkey on Windows may need administrator policies in rare cases — not required for wallpapers or the strip.\n',
@@ -240,7 +256,7 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
         'Приложение тянет публичную RSS-ленту Reddit (без логина), скачивает картинки, фильтрует по размеру и ориентации и ставит обои.\n',
       )
       ..writeln(
-        '• Тройное нажатие работает только по серой полоске внутри этого окна — не по «голому» рабочему столу. '
+        '• Тройное нажатие срабатывает только по нижней полоске внутри окна приложения — не по «голому» рабочему столу. '
         'Если в настройках включено «только после применения приложением», дождитесь первой успешной установки обоев.\n',
       )
       ..writeln(

@@ -45,10 +45,15 @@ class WallpaperEngine extends ChangeNotifier {
   String _log = '';
   String? _currentWallpaperPath;
   bool _running = false;
+  int _busyOps = 0;
+  DateTime? _lastOfflineScheduleLogAt;
 
   String get logText => _log;
   String? get currentWallpaperPath => _currentWallpaperPath;
   bool get isRunning => _running;
+
+  /// True while [nextWallpaperQuick] or user-driven [advanceFromNetwork] runs (UI spinners).
+  bool get isWallpaperBusy => _busyOps > 0;
 
   AppSettings get settings => _settingsRepository.settings;
 
@@ -111,6 +116,35 @@ class WallpaperEngine extends ChangeNotifier {
     }
   }
 
+  /// Usable Internet for RSS / HTTP (not `none`; on Android respects «только Wi‑Fi»).
+  Future<bool> _hasNetworkConnectivity() async {
+    final s = settings;
+    try {
+      final c = await Connectivity().checkConnectivity();
+      if (c.contains(ConnectivityResult.none)) return false;
+      if (!Platform.isAndroid || !s.onlyWifiDownloads) return true;
+      return c.contains(ConnectivityResult.wifi) ||
+          c.contains(ConnectivityResult.ethernet);
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> _downloadsAllowed() async {
+    if (!await _hasNetworkConnectivity()) return false;
+    return _wifiOk();
+  }
+
+  void _throttledOfflineScheduleLog(String line) {
+    final now = DateTime.now();
+    if (_lastOfflineScheduleLogAt == null ||
+        now.difference(_lastOfflineScheduleLogAt!) >
+            const Duration(minutes: 5)) {
+      _lastOfflineScheduleLogAt = now;
+      _append(line);
+    }
+  }
+
   Future<void> reloadSettings() async {
     await _settingsRepository.load();
     notifyListeners();
@@ -137,7 +171,10 @@ class WallpaperEngine extends ChangeNotifier {
     await _restorePersistedWallpaper();
     _running = true;
     notifyListeners();
-    final pf = await advanceFromNetwork(reason: 'Старт: сразу новая картинка');
+    final pf = await advanceFromNetwork(
+      reason: 'Старт: сразу новая картинка',
+      showAsBusy: false,
+    );
     if (pf) unawaited(_prefetchWorker());
     _armTimer();
   }
@@ -156,9 +193,38 @@ class WallpaperEngine extends ChangeNotifier {
     if (!_running) return;
     if (_scheduledWallpaperTick) return;
     if (DateTime.now().isBefore(_nextScheduledWallpaperAt)) return;
+
+    final s = _settingsRepository.settings;
+    final hasNet = await _hasNetworkConnectivity();
+
+    if (!hasNet) {
+      if (s.offlineWallpaperBehavior == AppSettings.offlinePauseScheduled) {
+        _throttledOfflineScheduleLog(
+          'По расписанию: нет сети — автосмена приостановлена (настройка).',
+        );
+        return;
+      }
+      if (s.offlineWallpaperBehavior == AppSettings.offlineCycleCache) {
+        _scheduledWallpaperTick = true;
+        try {
+          await _lock.synchronized(() async {
+            await _applyNextCachedRoundRobin(reason: 'По расписанию (без сети, кэш)');
+          });
+        } finally {
+          _scheduledWallpaperTick = false;
+        }
+        final sec = s.intervalSeconds.clamp(60, 604800);
+        _nextScheduledWallpaperAt = DateTime.now().add(Duration(seconds: sec));
+        return;
+      }
+    }
+
     _scheduledWallpaperTick = true;
     try {
-      final pf = await advanceFromNetwork(reason: 'По расписанию');
+      final pf = await advanceFromNetwork(
+        reason: 'По расписанию',
+        showAsBusy: false,
+      );
       if (pf) unawaited(_prefetchWorker());
     } finally {
       _scheduledWallpaperTick = false;
@@ -230,40 +296,101 @@ class WallpaperEngine extends ChangeNotifier {
     return merged;
   }
 
-  /// Next wallpaper: use prefetch file if valid, otherwise download.
+  /// Next wallpaper: use prefetch file if valid, otherwise download (or offline cache cycle).
   Future<void> nextWallpaperQuick() async {
-    var prefetchLater = false;
-    await _lock.synchronized(() async {
-      if (!await _wifiOk()) {
-        notifyListeners();
+    _busyOps++;
+    notifyListeners();
+    try {
+      var prefetchLater = false;
+      await _lock.synchronized(() async {
+        final dir = await _wallpaperDir();
+        final legacyImg = File(p.join(dir.path, '_prefetch_next.jpg'));
+        final legacyMeta = File(p.join(dir.path, '_prefetch_meta.txt'));
+        if (legacyImg.existsSync()) {
+          if (await _tryConsumePrefetchFile(dir, legacyImg, legacyMeta)) {
+            prefetchLater = settings.prefetchNext;
+            return;
+          }
+        }
+        final cap =
+            settings.prefetchSlots.clamp(1, AppSettings.prefetchSlotsMax);
+        for (var slot = 0; slot < cap; slot++) {
+          final img = File(p.join(dir.path, '_prefetch_$slot.jpg'));
+          final meta = File(p.join(dir.path, '_prefetch_$slot.meta'));
+          if (!img.existsSync()) continue;
+          if (await _tryConsumePrefetchFile(dir, img, meta)) {
+            prefetchLater = settings.prefetchNext;
+            return;
+          }
+        }
+      });
+      if (prefetchLater) {
+        if (await _downloadsAllowed()) unawaited(_prefetchWorker());
         return;
       }
-      final dir = await _wallpaperDir();
-      final legacyImg = File(p.join(dir.path, '_prefetch_next.jpg'));
-      final legacyMeta = File(p.join(dir.path, '_prefetch_meta.txt'));
-      if (legacyImg.existsSync()) {
-        if (await _tryConsumePrefetchFile(dir, legacyImg, legacyMeta)) {
-          prefetchLater = settings.prefetchNext;
-          return;
-        }
+      if (await _downloadsAllowed()) {
+        final pf = await advanceFromNetwork(
+          reason: 'Быстрая смена (без prefetch)',
+          showAsBusy: false,
+        );
+        if (pf) unawaited(_prefetchWorker());
+        return;
       }
-      final cap = settings.prefetchSlots.clamp(1, 8);
-      for (var slot = 0; slot < cap; slot++) {
-        final img = File(p.join(dir.path, '_prefetch_$slot.jpg'));
-        final meta = File(p.join(dir.path, '_prefetch_$slot.meta'));
-        if (!img.existsSync()) continue;
-        if (await _tryConsumePrefetchFile(dir, img, meta)) {
-          prefetchLater = settings.prefetchNext;
-          return;
-        }
+      final s = settings;
+      final hasNet = await _hasNetworkConnectivity();
+      if (!hasNet && s.offlineWallpaperBehavior == AppSettings.offlineCycleCache) {
+        await _lock.synchronized(() async {
+          await _applyNextCachedRoundRobin(reason: 'Быстрая смена (без сети, кэш)');
+        });
+        return;
       }
-    });
-    if (prefetchLater) {
-      unawaited(_prefetchWorker());
+      if (!hasNet) {
+        _append(
+          'Нет сети — новый кадр из RSS недоступен. В настройках можно включить циклическую смену по сохранённым wp_*.jpg.',
+        );
+      }
+    } finally {
+      _busyOps--;
+      notifyListeners();
+    }
+  }
+
+  /// Rotate among existing `wp_*.jpg` in the wallpaper directory (no download).
+  Future<void> _applyNextCachedRoundRobin({required String reason}) async {
+    _append('— $reason');
+    final s = settings;
+    final dir = await _wallpaperDir();
+    final files =
+        dir.listSync().whereType<File>().where((f) {
+          final n = p.basename(f.path);
+          return n.startsWith('wp_') && n.endsWith('.jpg');
+        }).toList();
+    if (files.isEmpty) {
+      _append('В кэше нет wp_*.jpg — нечего показать без сети.');
+      notifyListeners();
       return;
     }
-    final pf = await advanceFromNetwork(reason: 'Быстрая смена (без prefetch)');
-    if (pf) unawaited(_prefetchWorker());
+    files.sort(
+      (a, b) => a.statSync().modified.compareTo(b.statSync().modified),
+    );
+    var start = 0;
+    final cur = _currentWallpaperPath;
+    if (cur != null && cur.isNotEmpty) {
+      final i = files.indexWhere((f) => p.equals(f.path, cur));
+      if (i >= 0) start = (i + 1) % files.length;
+    }
+    for (var step = 0; step < files.length; step++) {
+      final pick = files[(start + step) % files.length];
+      if (!await _validateFile(pick)) continue;
+      final ok = await _apply.apply(pick, settings: s);
+      if (!ok) continue;
+      await _rememberAppliedWallpaper(pick.path);
+      _append('Обои из кэша: ${p.basename(pick.path)}');
+      notifyListeners();
+      return;
+    }
+    _append('В кэше нет кадра под текущие фильтры (размер / ориентация).');
+    notifyListeners();
   }
 
   Future<bool> _tryConsumePrefetchFile(
@@ -318,15 +445,28 @@ class WallpaperEngine extends ChangeNotifier {
   }
 
   /// Returns whether prefetch should run after this call completes.
-  Future<bool> advanceFromNetwork({required String reason}) async {
+  Future<bool> advanceFromNetwork({
+    required String reason,
+    bool showAsBusy = true,
+  }) async {
+    if (showAsBusy) {
+      _busyOps++;
+      notifyListeners();
+    }
     var prefetchAfter = false;
-    await _lock.synchronized(() async {
-      _append('— $reason');
-      if (!await _wifiOk()) {
-        notifyListeners();
-        return;
-      }
-      final s = settings;
+    try {
+      await _lock.synchronized(() async {
+        _append('— $reason');
+        if (!await _hasNetworkConnectivity()) {
+          _append('Нет подключения — RSS и скачивание недоступны.');
+          notifyListeners();
+          return;
+        }
+        if (!await _wifiOk()) {
+          notifyListeners();
+          return;
+        }
+        final s = settings;
       List<WallpaperCandidate> list;
       try {
         list = await _gatherFeedCandidates(s, logPageCount: true);
@@ -394,15 +534,21 @@ class WallpaperEngine extends ChangeNotifier {
       );
       notifyListeners();
     });
+    } finally {
+      if (showAsBusy) {
+        _busyOps--;
+        notifyListeners();
+      }
+    }
     return prefetchAfter;
   }
 
   Future<void> _prefetchWorker() async {
-    if (!await _wifiOk()) return;
+    if (!await _downloadsAllowed()) return;
     final s = settings;
-    final n = s.prefetchSlots.clamp(1, 8);
+    final n = s.prefetchSlots.clamp(1, AppSettings.prefetchSlotsMax);
     final dir = await _wallpaperDir();
-    for (var slot = n; slot < 8; slot++) {
+    for (var slot = n; slot < AppSettings.prefetchSlotsMax; slot++) {
       await _safeDelete(File(p.join(dir.path, '_prefetch_$slot.jpg')));
       await _safeDelete(File(p.join(dir.path, '_prefetch_$slot.meta')));
     }
