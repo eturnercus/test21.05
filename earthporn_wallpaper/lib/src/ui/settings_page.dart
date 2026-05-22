@@ -30,6 +30,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _rss;
   late TextEditingController _interval;
   late TextEditingController _maxCache;
+  late TextEditingController _prefetchSlots;
+  late TextEditingController _wallpaperStorage;
   late TextEditingController _minW;
   late TextEditingController _minH;
   late TextEditingController _hashCap;
@@ -76,18 +78,40 @@ class _SettingsPageState extends State<SettingsPage> {
   double _windowsSpanBezelPx = 0;
   int _windowsSpanJpegQuality = 90;
 
+  int _offlineWallpaperBehavior = AppSettings.offlineTryNetwork;
+
+  String? _resolvedCacheDir;
+
   @override
   void initState() {
     super.initState();
-    final s = context.read<SettingsRepository>().settings;
-    _rss = TextEditingController(text: s.rssUrl);
-    _interval = TextEditingController(text: '${s.intervalSeconds}');
-    _maxCache = TextEditingController(text: '${s.maxCachedFiles}');
-    _minW = TextEditingController(text: '${s.minWidth}');
-    _minH = TextEditingController(text: '${s.minHeight}');
-    _hashCap = TextEditingController(text: '${s.maxUsedHashEntries}');
-    _httpTimeout = TextEditingController(text: '${s.httpTimeoutSeconds}');
-    _tripleMs = TextEditingController(text: '${s.tripleClickWindowMs}');
+    _rss = TextEditingController();
+    _interval = TextEditingController();
+    _maxCache = TextEditingController();
+    _prefetchSlots = TextEditingController();
+    _wallpaperStorage = TextEditingController();
+    _minW = TextEditingController();
+    _minH = TextEditingController();
+    _hashCap = TextEditingController();
+    _httpTimeout = TextEditingController();
+    _tripleMs = TextEditingController();
+    _hydrateFrom(context.read<SettingsRepository>().settings);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshResolvedCachePath());
+    });
+  }
+
+  void _hydrateFrom(AppSettings s) {
+    _rss.text = s.rssUrl;
+    _interval.text = '${(s.intervalSeconds / 60).round().clamp(1, 10080)}';
+    _maxCache.text = '${s.maxCachedFiles}';
+    _prefetchSlots.text = '${s.prefetchSlots}';
+    _wallpaperStorage.text = s.wallpaperStoragePath;
+    _minW.text = '${s.minWidth}';
+    _minH.text = '${s.minHeight}';
+    _hashCap.text = '${s.maxUsedHashEntries}';
+    _httpTimeout.text = '${s.httpTimeoutSeconds}';
+    _tripleMs.text = '${s.tripleClickWindowMs}';
     _orientation = s.orientation;
     _proxyFirst = s.proxyFirst;
     _minTray = s.minimizeToTrayOnClose;
@@ -123,6 +147,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _windowsSpanFitMode = s.windowsSpanFitMode;
     _windowsSpanBezelPx = s.windowsSpanBezelPx;
     _windowsSpanJpegQuality = s.windowsSpanJpegQuality;
+    _offlineWallpaperBehavior = s.offlineWallpaperBehavior;
     if (s.hotkeyKey == LogicalKeyboardKey.keyN) {
       _hotPreset = 'n';
     } else if (s.hotkeyKey == LogicalKeyboardKey.keyE) {
@@ -132,11 +157,76 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _resetDefaultsToFactory() async {
+    final ok =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(
+              t(ctx, ru: 'Сброс настроек', en: 'Reset settings'),
+            ),
+            content: Text(
+              t(
+                ctx,
+                ru:
+                    'Все параметры вернутся к значениям по умолчанию (как при первом запуске). Продолжить?',
+                en:
+                    'All options will return to first-run defaults. Continue?',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(t(ctx, ru: 'Отмена', en: 'Cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(t(ctx, ru: 'Сбросить', en: 'Reset')),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok || !mounted) return;
+    final repo = context.read<SettingsRepository>();
+    final engine = context.read<WallpaperEngine>();
+    await repo.resetToDefaults();
+    await engine.reloadSettings();
+    engine.updateTimerFromSettings();
+    if (!mounted) return;
+    setState(() => _hydrateFrom(repo.settings));
+    await AutostartService.apply(repo.settings);
+    if (!mounted) return;
+    await refreshDesktopChrome(context);
+    if (!mounted) return;
+    await _refreshResolvedCachePath();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          t(
+            context,
+            ru: 'Настройки сброшены по умолчанию',
+            en: 'Settings reset to defaults',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshResolvedCachePath() async {
+    final eng = context.read<WallpaperEngine>();
+    final path = await eng.wallpaperCacheDirectoryPath();
+    if (mounted) setState(() => _resolvedCacheDir = path);
+  }
+
   @override
   void dispose() {
     _rss.dispose();
     _interval.dispose();
     _maxCache.dispose();
+    _prefetchSlots.dispose();
+    _wallpaperStorage.dispose();
     _minW.dispose();
     _minH.dispose();
     _hashCap.dispose();
@@ -156,11 +246,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _save() async {
     final repo = context.read<SettingsRepository>();
     final engine = context.read<WallpaperEngine>();
+    final minutes =
+        int.tryParse(_interval.text.trim()) ??
+        (AppSettings.defaultIntervalSeconds ~/ 60);
+    final intervalSeconds = (minutes * 60).clamp(60, 604800);
     final next = repo.settings.copyWith(
       rssUrl: _rss.text.trim(),
       proxyFirst: _proxyFirst,
-      intervalSeconds:
-          int.tryParse(_interval.text) ?? AppSettings.defaultIntervalSeconds,
+      intervalSeconds: intervalSeconds,
       maxCachedFiles: int.tryParse(_maxCache.text) ?? 10,
       minWidth: int.tryParse(_minW.text) ?? 1920,
       minHeight: int.tryParse(_minH.text) ?? 1080,
@@ -174,6 +267,9 @@ class _SettingsPageState extends State<SettingsPage> {
       hotkeyKey: _keyFromPreset(),
       hotkeyModifiers: const [HotKeyModifier.alt, HotKeyModifier.shift],
       prefetchNext: _prefetch,
+      prefetchSlots: (int.tryParse(_prefetchSlots.text.trim()) ?? 1)
+          .clamp(1, AppSettings.prefetchSlotsMax),
+      wallpaperStoragePath: _wallpaperStorage.text.trim(),
       filterNsfw: _nsfw,
       skipUsedHashes: _skipUsed,
       maxUsedHashEntries: int.tryParse(_hashCap.text) ?? 4000,
@@ -202,6 +298,7 @@ class _SettingsPageState extends State<SettingsPage> {
       windowsSpanFitMode: _windowsSpanFitMode,
       windowsSpanBezelPx: _windowsSpanBezelPx,
       windowsSpanJpegQuality: _windowsSpanJpegQuality,
+      offlineWallpaperBehavior: _offlineWallpaperBehavior,
       checkGithubUpdates: _checkGithubUpdates,
     );
     await repo.save(next);
@@ -210,6 +307,8 @@ class _SettingsPageState extends State<SettingsPage> {
     await AutostartService.apply(next);
     if (!mounted) return;
     await refreshDesktopChrome(context);
+    if (!mounted) return;
+    await _refreshResolvedCachePath();
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -401,26 +500,38 @@ class _SettingsPageState extends State<SettingsPage> {
                       runSpacing: 8,
                       children: [
                         ActionChip(
-                          label: const Text('30 мин · по умолчанию'),
+                          label: Text(
+                            t(
+                              context,
+                              ru: '30 мин · по умолчанию',
+                              en: '30 min · default',
+                            ),
+                          ),
                           onPressed: () => setState(
                             () => _interval.text =
-                                '${AppSettings.defaultIntervalSeconds}',
+                                '${AppSettings.defaultIntervalSeconds ~/ 60}',
                           ),
                         ),
                         ActionChip(
-                          label: const Text('60 мин'),
+                          label: Text(
+                            t(context, ru: '60 мин', en: '60 min'),
+                          ),
                           onPressed: () =>
-                              setState(() => _interval.text = '3600'),
+                              setState(() => _interval.text = '60'),
                         ),
                         ActionChip(
-                          label: const Text('90 мин'),
+                          label: Text(
+                            t(context, ru: '90 мин', en: '90 min'),
+                          ),
                           onPressed: () =>
-                              setState(() => _interval.text = '5400'),
+                              setState(() => _interval.text = '90'),
                         ),
                         ActionChip(
-                          label: const Text('6 ч'),
+                          label: Text(
+                            t(context, ru: '6 ч', en: '6 h'),
+                          ),
                           onPressed: () =>
-                              setState(() => _interval.text = '21600'),
+                              setState(() => _interval.text = '360'),
                         ),
                       ],
                     ),
@@ -428,10 +539,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     TextField(
                       controller: _interval,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText:
-                            'Интервал смены (секунды, ≥60). По умолчанию 1800 = 30 мин',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          ru:
+                              'Интервал смены обоев (минуты, 1–10080). По умолчанию 30',
+                          en:
+                              'Wallpaper change interval (minutes, 1–10080). Default 30',
+                        ),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -784,6 +900,99 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: _prefetch,
                       onChanged: (v) => setState(() => _prefetch = v),
                     ),
+                    if (_prefetch) ...[
+                      TextField(
+                        controller: _prefetchSlots,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: t(
+                            context,
+                            ru:
+                                'Сколько картинок держать в запасе (1–${AppSettings.prefetchSlotsMax})',
+                            en:
+                                'How many images to prefetch (1–${AppSettings.prefetchSlotsMax})',
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    DropdownButtonFormField<int>(
+                      value: _offlineWallpaperBehavior.clamp(
+                        AppSettings.offlineTryNetwork,
+                        AppSettings.offlineCycleCache,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          ru: 'Поведение без интернета (таймер и кнопки)',
+                          en: 'Offline behavior (timer & buttons)',
+                        ),
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: AppSettings.offlineTryNetwork,
+                          child: Text(
+                            t(
+                              context,
+                              ru:
+                                  'По умолчанию: ждать сеть (кэш можно листать вручную при режиме «цикл»)',
+                              en: 'Default: wait for network',
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: AppSettings.offlinePauseScheduled,
+                          child: Text(
+                            t(
+                              context,
+                              ru: 'Пауза автосмены по таймеру, пока нет сети',
+                              en: 'Pause scheduled changes until online',
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: AppSettings.offlineCycleCache,
+                          child: Text(
+                            t(
+                              context,
+                              ru:
+                                  'Листать сохранённые wp_*.jpg по кругу без сети',
+                              en: 'Cycle saved wp_*.jpg when offline',
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _offlineWallpaperBehavior = v);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _wallpaperStorage,
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          ru:
+                              'Папка для файлов обоев и запаса (пусто = каталог приложения)',
+                          en:
+                              'Wallpaper & prefetch folder (empty = app default)',
+                        ),
+                        hintText: '~/Pictures/EarthPornWallpaper',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    if (_resolvedCacheDir != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: SelectableText(
+                          '${t(context, ru: 'Сейчас используется:', en: 'Using folder:')} $_resolvedCacheDir',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                     if (!kIsWeb &&
                         (Platform.isWindows || Platform.isLinux)) ...[
                       const Divider(height: 32),
@@ -1033,8 +1242,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           Slider(
                             value: _windowsSpanJpegQuality.toDouble(),
                             min: 60,
-                            max: 95,
-                            divisions: 35,
+                            max: 100,
+                            divisions: 40,
                             label: '$_windowsSpanJpegQuality',
                             onChanged: (v) => setState(
                               () => _windowsSpanJpegQuality = v.round(),
@@ -1071,6 +1280,21 @@ class _SettingsPageState extends State<SettingsPage> {
                         );
                       },
                     ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: OutlinedButton.icon(
+                        onPressed: () => unawaited(_resetDefaultsToFactory()),
+                        icon: const Icon(Icons.restore_page_outlined),
+                        label: Text(
+                          t(
+                            context,
+                            ru: 'Сбросить настройки по умолчанию',
+                            en: 'Reset settings to defaults',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),

@@ -109,20 +109,20 @@ class HomePage extends StatelessWidget {
                                 ? t(
                                     context,
                                     ru:
-                                        'Внизу — серая полоска: три быстрых тапа по ней — следующий кадр (после того как обои уже поставило приложение). '
+                                        'Внизу экрана — узкая нейтральная зона: три быстрых тапа по ней переключают кадр (если обои уже ставило это приложение). '
                                         'Кнопки выше работают всегда.',
                                     en:
-                                        'Gray strip at the bottom: three quick taps — next wallpaper (after this app has applied one). '
-                                        'Buttons above always work.',
+                                        'Narrow neutral zone at the bottom: three quick taps switch the wallpaper (after this app has applied one). '
+                                        'The buttons above always work.',
                                   )
                                 : t(
                                     context,
                                     ru:
-                                        'Внизу — серая полоска: три быстрых щелчка по ней — следующий кадр (после успешной установки обоев этим приложением). '
+                                        'Внизу окна — узкая нейтральная зона: три быстрых щелчка по ней — следующий кадр (после успешной установки обоев этим приложением). '
                                         'В трее — меню. Кнопки выше — всегда.',
                                     en:
-                                        'Gray strip at the bottom: three quick clicks — next wallpaper (after a successful apply from this app). '
-                                        'Tray menu on desktop. Buttons above always work.',
+                                        'Narrow neutral zone at the bottom of the window: three quick clicks switch the wallpaper (after a successful apply from this app). '
+                                        'Tray menu on desktop. The buttons above always work.',
                                   ),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
@@ -132,49 +132,76 @@ class HomePage extends StatelessWidget {
                                 ),
                           ),
                           const SizedBox(height: 28),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              FilledButton.icon(
-                                onPressed: () {
-                                  unawaited(
-                                    context
-                                        .read<WallpaperEngine>()
-                                        .nextWallpaperQuick(),
-                                  );
-                                },
-                                icon: const Icon(Icons.auto_awesome),
-                                label: Text(
-                                  t(
-                                    context,
-                                    ru: 'Следующий кадр',
-                                    en: 'Next wallpaper',
-                                  ),
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  final eng = context.read<WallpaperEngine>();
-                                  final pf = await eng.advanceFromNetwork(
-                                    reason: t(
-                                      context,
-                                      ru: 'Вручную',
-                                      en: 'Manual',
+                          Builder(
+                            builder: (context) {
+                              final busy = engine.isWallpaperBusy;
+                              return Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: [
+                                  FilledButton.icon(
+                                    onPressed: busy
+                                        ? null
+                                        : () {
+                                            unawaited(
+                                              engine.nextWallpaperQuick(),
+                                            );
+                                          },
+                                    icon: busy
+                                        ? SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: scheme.onPrimary,
+                                            ),
+                                          )
+                                        : const Icon(Icons.auto_awesome),
+                                    label: Text(
+                                      t(
+                                        context,
+                                        ru: 'Следующий кадр',
+                                        en: 'Next wallpaper',
+                                      ),
                                     ),
-                                  );
-                                  if (pf) unawaited(eng.triggerPrefetch());
-                                },
-                                icon: const Icon(Icons.cloud_sync_rounded),
-                                label: Text(
-                                  t(
-                                    context,
-                                    ru: 'Тянуть из сети',
-                                    en: 'Pull from network',
                                   ),
-                                ),
-                              ),
-                            ],
+                                  OutlinedButton.icon(
+                                    onPressed: busy
+                                        ? null
+                                        : () async {
+                                            final pf =
+                                                await engine.advanceFromNetwork(
+                                              reason: t(
+                                                context,
+                                                ru: 'Вручную',
+                                                en: 'Manual',
+                                              ),
+                                            );
+                                            if (pf) {
+                                              unawaited(engine.triggerPrefetch());
+                                            }
+                                          },
+                                    icon: busy
+                                        ? SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: scheme.primary,
+                                            ),
+                                          )
+                                        : const Icon(Icons.cloud_sync_rounded),
+                                    label: Text(
+                                      t(
+                                        context,
+                                        ru: 'Тянуть из сети',
+                                        en: 'Pull from network',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                           const SizedBox(height: 28),
                           Consumer2<WallpaperEngine, SettingsRepository>(

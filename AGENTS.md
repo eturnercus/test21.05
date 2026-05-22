@@ -28,6 +28,8 @@ All commands run from `earthporn_wallpaper/`:
 - **libstdc++ symlink**: Clang 18 selects GCC 14 but Ubuntu 24.04 doesn't put `libstdc++.so` in the linker search path by default. If the build fails with `cannot find -lstdc++`, run: `sudo ln -sf /usr/lib/gcc/x86_64-linux-gnu/14/libstdc++.so /usr/lib/x86_64-linux-gnu/libstdc++.so`
 - **libstdc++-14-dev**: Must be installed for `type_traits` and other C++ standard library headers; clang 18 auto-selects GCC 14 include paths.
 - **Tray manager plugin error**: When running in a headless or minimal desktop environment, the app logs `MissingPluginException(No implementation found for method setToolTip on channel tray_manager)`. This is non-fatal; the app continues to work.
+- **Tray / window icons (Windows & Linux)**: `tray_manager.setIcon` and `window_manager.setIcon` join `dirname(Platform.resolvedExecutable)/data/flutter_assets/` with the argument. Pass a **bundle-relative asset key** such as `assets/tray.png` (tray) or `assets/app_icon.png` (window), not an absolute path copied to `/tmp`.
+- **GitHub Releases**: Use a tag derived from `earthporn_wallpaper/pubspec.yaml` `version:` (e.g. `1.3.2+27` → `v1.3.2` or `v1.3.2+27`). CI checks that the pushed tag matches that line. Release display name is `EarthPorn Wallpaper v<semver>`.
 - **OpenGL frame warnings**: GTK OpenGL size mismatch warnings (`Timed out waiting for OpenGL frame of size ...`) are cosmetic and can be ignored.
 - **DISPLAY environment variable**: Must be set (e.g., `export DISPLAY=:1`) before running the app on Linux desktop.
 - The app requires internet access to fetch the Reddit RSS feed (`reddit.com/r/EarthPorn/.rss`) and images from Reddit CDN.

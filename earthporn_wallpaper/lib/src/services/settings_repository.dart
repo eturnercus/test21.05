@@ -41,6 +41,19 @@ class SettingsRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Replace all preferences with defaults (Android keeps portrait-friendly defaults).
+  Future<void> resetToDefaults() async {
+    var base = AppSettings.defaults();
+    if (!kIsWeb && Platform.isAndroid) {
+      base = base.copyWith(
+        orientation: WallpaperOrientation.portrait,
+        minWidth: 1080,
+        minHeight: 1920,
+      );
+    }
+    await save(base);
+  }
+
   /// Show main-screen help overlay again (see [MainHelpOverlay.dismissedKey]).
   Future<void> requestShowMainHelpAgain() async {
     final p = await SharedPreferences.getInstance();

@@ -12,9 +12,11 @@ class WallpaperApplyService {
       return _android(image, settings.androidWallpaperLocation);
     }
     if (Platform.isWindows) {
-      if (settings.windowsSpanAllMonitors) {
-        final span = await _windowsSpanVirtualScreen(image.path, settings);
-        if (span) return true;
+      // Always composite to the real pixel size of the desktop first.
+      // Setting SPI with a small source image on an ultra-wide (e.g. 3840×1080)
+      // lets Windows upscale badly; drawing at full W×H avoids mushy walls.
+      if (await _windowsCompositeToDesktop(image.path, settings)) {
+        return true;
       }
       return _windowsSingle(image.path);
     }
@@ -58,8 +60,8 @@ public class W {
     return r.exitCode == 0;
   }
 
-  /// One wide JPEG covering [SystemInformation.VirtualScreen], then SPI.
-  Future<bool> _windowsSpanVirtualScreen(
+  /// One JPEG at the target desktop pixel size, then SPI.
+  Future<bool> _windowsCompositeToDesktop(
     String imagePath,
     AppSettings settings,
   ) async {
@@ -69,16 +71,18 @@ public class W {
     final fit = settings.windowsSpanFitMode == AppSettings.windowsSpanFitContain
         ? 'fit'
         : 'fill';
-    final quality = settings.windowsSpanJpegQuality.clamp(60, 95);
+    final quality = settings.windowsSpanJpegQuality.clamp(60, 100);
     final bezel = settings.windowsSpanBezelPx.clamp(0, 120).toInt();
+    final useAll = settings.windowsSpanAllMonitors ? 'true' : 'false';
 
-    final script = _windowsSpanScript(
+    final script = _windowsCompositeScript(
       fit: fit,
       quality: quality,
       bezel: bezel,
     )
         .replaceAll('__SRC__', imagePath.replaceAll("'", "''"))
-        .replaceAll('__DST__', outPath.replaceAll("'", "''"));
+        .replaceAll('__DST__', outPath.replaceAll("'", "''"))
+        .replaceAll('__USE_ALL__', useAll);
     await File(psPath).writeAsString(script);
 
     final r = await Process.run('powershell.exe', [
@@ -96,8 +100,8 @@ public class W {
     return ok;
   }
 
-  /// PowerShell: composite to virtual desktop; SPI at end.
-  static String _windowsSpanScript({
+  /// PowerShell: composite to primary or virtual desktop; SPI at end.
+  static String _windowsCompositeScript({
     required String fit,
     required int quality,
     required int bezel,
@@ -112,11 +116,18 @@ try {
   \$fitMode = '__FIT__'
   \$quality = __QUALITY__
   \$bezel = __BEZEL__
+  \$useAllMonitors = [bool]::Parse('__USE_ALL__')
   \$img = [System.Drawing.Image]::FromFile(\$src)
-  \$vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
-  \$W = [int]\$vs.Width
-  \$H = [int]\$vs.Height
-  if (\$W -le 0 -or \$H -le 0) { throw "Virtual screen size invalid" }
+  if (\$useAllMonitors) {
+    \$vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
+    \$W = [int]\$vs.Width
+    \$H = [int]\$vs.Height
+  } else {
+    \$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    \$W = [int]\$b.Width
+    \$H = [int]\$b.Height
+  }
+  if (\$W -le 0 -or \$H -le 0) { throw "Target desktop size invalid" }
   if (\$bezel -gt 0) {
     \$W = [Math]::Max(1, \$W - 2 * \$bezel)
     \$H = [Math]::Max(1, \$H - 2 * \$bezel)
@@ -126,6 +137,7 @@ try {
   \$g.Clear([System.Drawing.Color]::Black)
   \$g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   \$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  \$g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
   \$iw = [double]\$img.Width
   \$ih = [double]\$img.Height
   \$scale = 1.0

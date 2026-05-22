@@ -135,12 +135,13 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _index = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final navCtx = earthpornNavigatorKey.currentContext;
@@ -155,42 +156,69 @@ class _MainShellState extends State<MainShell> {
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final navCtx = earthpornNavigatorKey.currentContext;
+    if (navCtx == null) return;
+    Provider.of<WallpaperEngine>(navCtx, listen: false).onAppLifecycleResumed();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       extendBody: true,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    scheme.surface.withValues(alpha: 0.55),
-                    scheme.surfaceContainerLowest,
+      body: Consumer2<WallpaperEngine, SettingsRepository>(
+        builder: (context, engine, repo, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!engine.hasNetworkForUi)
+                _NetworkOfflineBanner(settings: repo.settings),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              scheme.surface.withValues(alpha: 0.55),
+                              scheme.surfaceContainerLowest,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: IndexedStack(
+                        index: _index,
+                        children: const [HomePage(), SettingsPage()],
+                      ),
+                    ),
+                    const Positioned.fill(child: MainHelpOverlay()),
                   ],
                 ),
               ),
-            ),
-          ),
-          Positioned.fill(
-            child: IndexedStack(
-              index: _index,
-              children: const [HomePage(), SettingsPage()],
-            ),
-          ),
-          const Positioned.fill(child: MainHelpOverlay()),
-        ],
+            ],
+          );
+        },
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.landscape_outlined),
-            selectedIcon: const Icon(Icons.landscape),
+            icon: _EarthpornNavIcon(selected: false),
+            selectedIcon: _EarthpornNavIcon(selected: true),
             label: t(context, ru: 'Обои', en: 'Wallpapers'),
           ),
           NavigationDestination(
@@ -199,6 +227,76 @@ class _MainShellState extends State<MainShell> {
             label: t(context, ru: 'Настройки', en: 'Settings'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EarthpornNavIcon extends StatelessWidget {
+  const _EarthpornNavIcon({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final im = Image.asset(
+      'assets/tray.png',
+      width: 24,
+      height: 24,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Icon(
+        selected ? Icons.landscape : Icons.landscape_outlined,
+      ),
+    );
+    return Opacity(opacity: selected ? 1.0 : 0.62, child: im);
+  }
+}
+
+class _NetworkOfflineBanner extends StatelessWidget {
+  const _NetworkOfflineBanner({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final b = settings.offlineWallpaperBehavior;
+    final ru = switch (b) {
+      AppSettings.offlineCycleCache =>
+        'Нет интернета. Идёт показ сохранённых обоев по кругу (режим «цикл кэша» в настройках).',
+      AppSettings.offlinePauseScheduled =>
+        'Нет интернета. Автосмена по расписанию приостановлена до появления сети.',
+      _ => 'Нет интернета. Новые обои из RSS сейчас недоступны.',
+    };
+    final en = switch (b) {
+      AppSettings.offlineCycleCache =>
+        'No internet. Rotating saved wallpapers (offline “cycle cache” mode in Settings).',
+      AppSettings.offlinePauseScheduled =>
+        'No internet. Scheduled wallpaper changes are paused until you are online.',
+      _ => 'No internet. New wallpapers from RSS are unavailable.',
+    };
+    return Material(
+      color: scheme.errorContainer,
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.wifi_off_rounded, color: scheme.onErrorContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                t(context, ru: ru, en: en),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onErrorContainer,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

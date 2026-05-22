@@ -58,6 +58,12 @@ class DesktopIntegration with TrayListener, WindowListener {
 
     await windowManager.setPreventClose(true);
     await windowManager.setTitle(appTitle());
+    // window_manager joins dirname(exe)/data/flutter_assets + [iconPath].
+    try {
+      await windowManager.setIcon('assets/app_icon.png');
+    } catch (e) {
+      debugPrint('windowManager.setIcon: $e');
+    }
 
     if (s.showTrayIcon) {
       await _setupTray(s);
@@ -124,11 +130,8 @@ class DesktopIntegration with TrayListener, WindowListener {
         ),
       ],
     );
-    try {
-      await trayManager.setContextMenu(menu);
-    } catch (e) {
-      debugPrint('tray setContextMenu: $e');
-    }
+    // tray_manager joins dirname(exe)/data/flutter_assets + [iconPath] on Win/Linux.
+    // Use a 64×64 tray asset; 512×512 paths confuse some system trays.
     try {
       await trayManager.setIcon('assets/tray.png');
     } catch (e) {
@@ -138,6 +141,11 @@ class DesktopIntegration with TrayListener, WindowListener {
       await trayManager.setToolTip('EarthPorn — ${AppSettings.creator}');
     } catch (e) {
       debugPrint('tray setToolTip: $e');
+    }
+    try {
+      await trayManager.setContextMenu(menu);
+    } catch (e) {
+      debugPrint('tray setContextMenu: $e');
     }
   }
 

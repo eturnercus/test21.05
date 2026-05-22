@@ -77,8 +77,8 @@ class _TripleEmptyWallpaperAreaState extends State<TripleEmptyWallpaperArea> {
             child: Text(
               t(
                 context,
-                ru: 'Три быстрых нажатия по этой полоске — следующий кадр',
-                en: 'Three quick taps on this strip — next wallpaper',
+                ru: 'Три быстрых нажатия по этой зоне — следующий кадр',
+                en: 'Three quick taps on this zone — next wallpaper',
               ),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
