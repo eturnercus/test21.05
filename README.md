@@ -40,6 +40,8 @@
 - Windows: `https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download/EarthPorn-Wallpaper-Windows-x64.zip`
 - Android: `https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download/EarthPorn-Wallpaper-Android-debug.apk`
 
+**Как попадают файлы в Release.** Workflow [`.github/workflows/earthporn-artifacts.yml`](.github/workflows/earthporn-artifacts.yml) после сборок прикрепляет артефакты только если сработал **job «Publish GitHub Release»**. Он запускается при пуше тега **`v*`** (например `v1.0.0`) или тега **`releases`**, либо вручную: вкладка **Actions** → **EarthPorn build artifacts** → **Run workflow** → включить **Publish…** и указать **существующий** тег в поле `release_tag` (можно `releases` или `v1.0.0`). Раньше тег `releases` не совпадал с фильтром `v*`, а при падении одной из платформ публикация могла не выполняться — это исправлено (`always()` и загрузка только успешно собранных файлов).
+
 ### Linux (Ubuntu / Debian) — одним блоком в консоль
 
 Скопируйте целиком (зависимости для **GTK-трея и хоткея** + скачивание последнего релиза + запуск):

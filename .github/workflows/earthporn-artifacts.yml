@@ -1,20 +1,28 @@
 # Separate jobs so one failing platform does not block others uploading artifacts.
+#
+# Releases / assets:
+# - Push a version tag matching `v*` (e.g. v1.0.1) **or** the alias tag `releases`
+#   to run builds and attach available artifacts to that GitHub Release.
+# - Or: Actions → this workflow → "Run workflow" → enable "Publish …" and set
+#   "release_tag" to an **existing** tag (any name, e.g. `releases` or `v1.0.0`).
 name: EarthPorn build artifacts
 
 on:
   push:
     branches: [main, 'cursor/**']
-    tags: ['v*']
+    tags:
+      - 'v*'
+      - 'releases'
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       publish_github_release:
-        description: After builds, upload assets to a GitHub Release for the tag below
+        description: After builds, upload assets to the GitHub Release for release_tag
         type: boolean
         default: false
       release_tag:
-        description: Git tag (e.g. v1.2.3); must exist on origin. Used only when publish is checked.
+        description: Existing Git tag (e.g. v1.2.3 or releases); used when publish is checked
         type: string
         required: false
         default: ''
@@ -89,12 +97,19 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release (tag push or manual)
     needs: [android-debug-apk, linux-portable-bundle, windows-portable-zip]
-    # Tag push: ref is refs/tags/v*. Manual run: ref is a branch — use inputs instead.
     if: >-
-      (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')) ||
-      (github.event_name == 'workflow_dispatch' &&
-        github.event.inputs.publish_github_release == 'true' &&
-        startsWith(github.event.inputs.release_tag, 'v'))
+      always() &&
+      !cancelled() &&
+      (
+        (github.ref_type == 'tag' && (
+          startsWith(github.ref_name, 'v') ||
+          startsWith(github.ref_name, 'V') ||
+          github.ref_name == 'releases'
+        )) ||
+        (github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.publish_github_release == 'true' &&
+          github.event.inputs.release_tag != '')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,43 +124,62 @@ jobs:
           INPUT_TAG: ${{ github.event.inputs.release_tag }}
         run: |
           set -euo pipefail
-          if [ "$REF_TYPE" = "tag" ] && [[ "$REF_NAME" == v* ]]; then
+          if [ "$REF_TYPE" = "tag" ]; then
             echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+            t=$(printf '%s' "$INPUT_TAG" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            if [ -z "$t" ]; then
+              echo "release_tag is empty"
+              exit 1
+            fi
+            echo "tag=$t" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: earthporn-android-debug-apk
           path: rel
 
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: earthporn-linux-portable-tar-gz
           path: rel
 
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: earthporn-windows-portable-zip
           path: rel
 
-      - name: Normalize release asset names
+      - name: Normalize release asset names and list uploads
+        id: assets
         run: |
-          set -eux
+          set -euo pipefail
+          mkdir -p rel
           cd rel
-          test -f app-debug.apk
-          mv -f app-debug.apk EarthPorn-Wallpaper-Android-debug.apk
-          mv -f earthporn-linux-portable.tar.gz EarthPorn-Wallpaper-Linux-x64.tar.gz
-          mv -f earthporn-windows-portable.zip EarthPorn-Wallpaper-Windows-x64.zip
+          if [ -f app-debug.apk ]; then mv -f app-debug.apk EarthPorn-Wallpaper-Android-debug.apk; fi
+          if [ -f earthporn-linux-portable.tar.gz ]; then mv -f earthporn-linux-portable.tar.gz EarthPorn-Wallpaper-Linux-x64.tar.gz; fi
+          if [ -f earthporn-windows-portable.zip ]; then mv -f earthporn-windows-portable.zip EarthPorn-Wallpaper-Windows-x64.zip; fi
           ls -la
+          files=""
+          for f in EarthPorn-Wallpaper-Android-debug.apk EarthPorn-Wallpaper-Linux-x64.tar.gz EarthPorn-Wallpaper-Windows-x64.zip; do
+            if [ -f "$f" ]; then files="${files}rel/${f}"$'\n'; fi
+          done
+          if [ -z "$files" ]; then
+            echo "No build artifacts to attach. Re-run failed platform jobs, then re-run this workflow or re-push the tag."
+            exit 1
+          fi
+          {
+            echo "files<<EOF"
+            printf '%s' "$files"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.rel.outputs.tag }}
           name: ${{ steps.rel.outputs.tag }}
           generate_release_notes: true
-          files: |
-            rel/EarthPorn-Wallpaper-Android-debug.apk
-            rel/EarthPorn-Wallpaper-Linux-x64.tar.gz
-            rel/EarthPorn-Wallpaper-Windows-x64.zip
+          files: ${{ steps.assets.outputs.files }}
