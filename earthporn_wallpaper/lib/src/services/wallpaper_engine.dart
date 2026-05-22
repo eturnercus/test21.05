@@ -17,6 +17,7 @@ import '../models/wallpaper_candidate.dart';
 import '../models/wallpaper_orientation.dart';
 import 'feed_client.dart';
 import 'image_fetch_prefs.dart';
+import '../platform/android_wallpaper_bridge.dart';
 import 'settings_repository.dart';
 import 'url_normalizer.dart';
 import 'wallpaper_apply_service.dart';
@@ -121,6 +122,26 @@ class WallpaperEngine extends ChangeNotifier {
     final pf = await advanceFromNetwork(reason: 'Старт: сразу новая картинка');
     if (pf) unawaited(_prefetchWorker());
     _armTimer();
+    if (Platform.isAndroid) {
+      unawaited(_syncAndroidKeepAlive());
+    }
+  }
+
+  Future<void> _syncAndroidKeepAlive() async {
+    if (!Platform.isAndroid) return;
+    await AndroidWallpaperBridge.setKeepAlive(
+      settings.androidKeepAliveForScheduledWallpaper,
+    );
+  }
+
+  /// After settings change on Android: notification keep-alive + live wallpaper prefs.
+  Future<void> refreshAndroidServices() async {
+    if (!Platform.isAndroid) return;
+    await _syncAndroidKeepAlive();
+    final p = _currentWallpaperPath;
+    if (p != null && File(p).existsSync()) {
+      await AndroidWallpaperBridge.syncLiveWallpaperFromSettings(p, settings);
+    }
   }
 
   void _armTimer() {
@@ -138,12 +159,18 @@ class WallpaperEngine extends ChangeNotifier {
 
   void updateTimerFromSettings() {
     _armTimer();
+    if (Platform.isAndroid) {
+      unawaited(_syncAndroidKeepAlive());
+    }
   }
 
   Future<void> stop() async {
     _timer?.cancel();
     _timer = null;
     _running = false;
+    if (Platform.isAndroid) {
+      unawaited(AndroidWallpaperBridge.setKeepAlive(false));
+    }
     notifyListeners();
   }
 

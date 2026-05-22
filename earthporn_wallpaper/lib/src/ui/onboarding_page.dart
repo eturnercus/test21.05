@@ -77,7 +77,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 const Spacer(),
                 if (_step == 0) ...[
                   Text(
-                    'Выберите, как хотите использовать приложение. Статические обои меняются автоматически по расписанию (по умолчанию каждые 30 минут). Живые обои открывают системный выбор Android.',
+                    'Выберите тип. Статические обои ставит приложение; смена по расписанию работает надёжнее, если в настройках включено фоновое уведомление. Живые обои EarthPorn — на рабочем столе: наклон, листание экранов и три тапа по свободному месту на обоях (после выбора в системе).',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ).animate().fadeIn(),
                   const SizedBox(height: 28),
@@ -101,7 +101,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   const SizedBox(height: 12),
                   _ChoiceTile(
                     title: 'Живые обои',
-                    subtitle: 'Откроется экран выбора живых обоев Android',
+                    subtitle:
+                        'Откроется выбор: укажите «EarthPorn Wallpaper» — эффекты на рабочем столе',
                     icon: Icons.motion_photos_on_outlined,
                     onTap: () => _finish(openLiveChooser: true),
                   ),

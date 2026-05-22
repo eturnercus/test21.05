@@ -4,12 +4,13 @@ import 'package:path/path.dart' as p;
 import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 
 import '../models/app_settings.dart';
+import '../platform/android_wallpaper_bridge.dart';
 
 /// Applies a local image as the desktop / device wallpaper per OS.
 class WallpaperApplyService {
   Future<bool> apply(File image, {required AppSettings settings}) async {
     if (Platform.isAndroid) {
-      return _android(image, settings.androidWallpaperLocation);
+      return _android(image, settings);
     }
     if (Platform.isWindows) {
       if (settings.windowsSpanAllMonitors) {
@@ -24,10 +25,14 @@ class WallpaperApplyService {
     return false;
   }
 
-  Future<bool> _android(File image, int location) async {
+  Future<bool> _android(File image, AppSettings settings) async {
     try {
       final wm = WallpaperManagerPlus();
-      await wm.setWallpaper(image, location);
+      await wm.setWallpaper(image, settings.androidWallpaperLocation);
+      await AndroidWallpaperBridge.syncLiveWallpaperFromSettings(
+        image.path,
+        settings,
+      );
       return true;
     } catch (_) {
       return false;

@@ -60,6 +60,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _tripleTapOnlyIfAppliedByApp = true;
   bool _checkGithubUpdates = true;
 
+  bool _androidHomeTripleTapEnabled = true;
+  bool _androidKeepAliveForScheduledWallpaper = true;
+
   bool _androidGyroParallaxEnabled = false;
   double _androidGyroParallaxScale = 1.08;
   double _androidGyroMaxOffsetDp = 16;
@@ -75,6 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
   int _windowsSpanFitMode = AppSettings.windowsSpanFitFill;
   double _windowsSpanBezelPx = 0;
   int _windowsSpanJpegQuality = 90;
+  bool _desktopGlobalTripleClick = true;
 
   @override
   void initState() {
@@ -109,6 +113,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _uiLanguageCode = s.uiLanguageCode;
     _tripleTapOnlyIfAppliedByApp = s.tripleTapOnlyIfAppliedByApp;
     _checkGithubUpdates = s.checkGithubUpdates;
+    _androidHomeTripleTapEnabled = s.androidHomeTripleTapEnabled;
+    _androidKeepAliveForScheduledWallpaper =
+        s.androidKeepAliveForScheduledWallpaper;
     _androidGyroParallaxEnabled = s.androidGyroParallaxEnabled;
     _androidGyroParallaxScale = s.androidGyroParallaxScale;
     _androidGyroMaxOffsetDp = s.androidGyroMaxOffsetDp;
@@ -123,6 +130,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _windowsSpanFitMode = s.windowsSpanFitMode;
     _windowsSpanBezelPx = s.windowsSpanBezelPx;
     _windowsSpanJpegQuality = s.windowsSpanJpegQuality;
+    _desktopGlobalTripleClick = s.desktopGlobalTripleClick;
     if (s.hotkeyKey == LogicalKeyboardKey.keyN) {
       _hotPreset = 'n';
     } else if (s.hotkeyKey == LogicalKeyboardKey.keyE) {
@@ -203,10 +211,15 @@ class _SettingsPageState extends State<SettingsPage> {
       windowsSpanBezelPx: _windowsSpanBezelPx,
       windowsSpanJpegQuality: _windowsSpanJpegQuality,
       checkGithubUpdates: _checkGithubUpdates,
+      androidHomeTripleTapEnabled: _androidHomeTripleTapEnabled,
+      androidKeepAliveForScheduledWallpaper:
+          _androidKeepAliveForScheduledWallpaper,
+      desktopGlobalTripleClick: _desktopGlobalTripleClick,
     );
     await repo.save(next);
     await engine.reloadSettings();
     engine.updateTimerFromSettings();
+    await engine.refreshAndroidServices();
     await AutostartService.apply(next);
     if (!mounted) return;
     await refreshDesktopChrome(context);
@@ -572,6 +585,51 @@ class _SettingsPageState extends State<SettingsPage> {
                     if (!kIsWeb && Platform.isAndroid) ...[
                       const Divider(height: 24),
                       SwitchListTile(
+                        title: Text(
+                          t(
+                            context,
+                            ru: 'Смена по расписанию в фоне (как на ПК)',
+                            en: 'Scheduled changes in background (like desktop)',
+                          ),
+                        ),
+                        subtitle: Text(
+                          t(
+                            context,
+                            ru:
+                                'Постоянное уведомление держит процесс, чтобы таймер интервала не останавливался. Отключите, если не нужно.',
+                            en:
+                                'A low-priority notification keeps the process alive so the interval timer keeps running.',
+                          ),
+                          softWrap: true,
+                        ),
+                        value: _androidKeepAliveForScheduledWallpaper,
+                        onChanged: (v) => setState(
+                          () => _androidKeepAliveForScheduledWallpaper = v,
+                        ),
+                      ),
+                      SwitchListTile(
+                        title: Text(
+                          t(
+                            context,
+                            ru: 'Три нажатия по обоям на рабочем столе',
+                            en: 'Triple tap on home wallpaper',
+                          ),
+                        ),
+                        subtitle: Text(
+                          t(
+                            context,
+                            ru:
+                                'Только для живых обоев «EarthPorn Wallpaper»: три быстрых тапа по свободному месту на обоях — следующий кадр. Нужен выбор этих обоев в системе.',
+                            en:
+                                'Only when EarthPorn live wallpaper is set: three quick taps on empty wallpaper area.',
+                          ),
+                          softWrap: true,
+                        ),
+                        value: _androidHomeTripleTapEnabled,
+                        onChanged: (v) =>
+                            setState(() => _androidHomeTripleTapEnabled = v),
+                      ),
+                      SwitchListTile(
                         title: const Text(
                           'Только Wi‑Fi / Ethernet для загрузок',
                         ),
@@ -607,17 +665,17 @@ class _SettingsPageState extends State<SettingsPage> {
                         title: Text(
                           t(
                             context,
-                            ru: 'Параллакс превью: акселерометр',
-                            en: 'Preview parallax: accelerometer',
+                            ru: 'Акселерометр на живых обоях',
+                            en: 'Accelerometer on live wallpaper',
                           ),
                         ),
                         subtitle: Text(
                           t(
                             context,
                             ru:
-                                'Только в окне приложения на главной. Системные обои на домашнем экране не двигаются.',
+                                'Работает на рабочем столе, если выбраны живые обои EarthPorn. Превью в приложении — статичное.',
                             en:
-                                'In-app preview on Home only. System home wallpaper stays static.',
+                                'Works on the home screen with EarthPorn live wallpaper. In-app preview stays static.',
                           ),
                           softWrap: true,
                         ),
@@ -689,17 +747,17 @@ class _SettingsPageState extends State<SettingsPage> {
                         title: Text(
                           t(
                             context,
-                            ru: 'Параллакс превью: горизонтальные страницы',
-                            en: 'Preview parallax: horizontal pages',
+                            ru: 'Сдвиг при листании экранов лаунчера',
+                            en: 'Shift when swiping launcher pages',
                           ),
                         ),
                         subtitle: Text(
                           t(
                             context,
                             ru:
-                                'Имитация «свайпа экранов» внутри превью на главной.',
+                                'На живых обоях EarthPorn: картинка реагирует на горизонтальные страницы рабочего стола (как у системных обоев).',
                             en:
-                                'Simulates home-screen page swipe inside the Home preview.',
+                                'On EarthPorn live wallpaper: image shifts with launcher page scroll.',
                           ),
                           softWrap: true,
                         ),
@@ -879,6 +937,29 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         value: _winTriple,
                         onChanged: (v) => setState(() => _winTriple = v),
+                      ),
+                      SwitchListTile(
+                        title: Text(
+                          t(
+                            context,
+                            ru: 'Три ЛКМ в любом месте (глобально, Windows)',
+                            en: 'Three left-clicks anywhere (global, Windows)',
+                          ),
+                          softWrap: true,
+                        ),
+                        subtitle: Text(
+                          t(
+                            context,
+                            ru:
+                                'Только Windows: низкоуровневый хук мыши. На Linux/macOS можно вызвать второй экземпляр с аргументом --earthporn-next (без окна).',
+                            en:
+                                'Windows only: low-level mouse hook. On Linux/macOS run a second instance with --earthporn-next (no window).',
+                          ),
+                          softWrap: true,
+                        ),
+                        value: _desktopGlobalTripleClick,
+                        onChanged: (v) =>
+                            setState(() => _desktopGlobalTripleClick = v),
                       ),
                       TextField(
                         controller: _tripleMs,
@@ -1076,8 +1157,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               TripleEmptyWallpaperArea(
                 enabled:
+                    !kIsWeb &&
+                    !Platform.isAndroid &&
                     repo.settings.windowTripleClickNext &&
-                        engine.isTripleStripActive(),
+                    engine.isTripleStripActive(),
                 windowMs: repo.settings.tripleClickWindowMs,
                 minHeight: 168,
                 onTriple: () => unawaited(engine.nextWallpaperQuick()),

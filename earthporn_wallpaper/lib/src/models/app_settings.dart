@@ -53,8 +53,11 @@ class AppSettings {
     required this.windowsSpanBezelPx,
     required this.windowsSpanJpegQuality,
     required this.checkGithubUpdates,
-    this.lastWindowWidth = 1040,
-    this.lastWindowHeight = 720,
+    required this.androidHomeTripleTapEnabled,
+    required this.androidKeepAliveForScheduledWallpaper,
+    required this.desktopGlobalTripleClick,
+    this.lastWindowWidth = 1180,
+    this.lastWindowHeight = 780,
   });
 
   static const String creator = 'eturnercus';
@@ -119,6 +122,9 @@ class AppSettings {
     windowsSpanBezelPx: 0,
     windowsSpanJpegQuality: 90,
     checkGithubUpdates: true,
+    androidHomeTripleTapEnabled: true,
+    androidKeepAliveForScheduledWallpaper: true,
+    desktopGlobalTripleClick: true,
   );
 
   final String rssUrl;
@@ -187,6 +193,15 @@ class AppSettings {
   /// Query GitHub Releases (throttled) and notify if a newer tag exists.
   final bool checkGithubUpdates;
 
+  /// Android live wallpaper: triple tap on empty home wallpaper requests next frame.
+  final bool androidHomeTripleTapEnabled;
+
+  /// Android: foreground notification keeps process alive so interval timer matches desktop.
+  final bool androidKeepAliveForScheduledWallpaper;
+
+  /// Windows: low-level mouse hook (three LMB). Linux/macOS: use tray/hotkey/strip; optional `--earthporn-next` CLI.
+  final bool desktopGlobalTripleClick;
+
   AppSettings copyWith({
     String? rssUrl,
     bool? proxyFirst,
@@ -235,6 +250,9 @@ class AppSettings {
     double? windowsSpanBezelPx,
     int? windowsSpanJpegQuality,
     bool? checkGithubUpdates,
+    bool? androidHomeTripleTapEnabled,
+    bool? androidKeepAliveForScheduledWallpaper,
+    bool? desktopGlobalTripleClick,
   }) {
     return AppSettings(
       rssUrl: rssUrl ?? this.rssUrl,
@@ -297,6 +315,13 @@ class AppSettings {
       windowsSpanJpegQuality:
           windowsSpanJpegQuality ?? this.windowsSpanJpegQuality,
       checkGithubUpdates: checkGithubUpdates ?? this.checkGithubUpdates,
+      androidHomeTripleTapEnabled:
+          androidHomeTripleTapEnabled ?? this.androidHomeTripleTapEnabled,
+      androidKeepAliveForScheduledWallpaper:
+          androidKeepAliveForScheduledWallpaper ??
+              this.androidKeepAliveForScheduledWallpaper,
+      desktopGlobalTripleClick:
+          desktopGlobalTripleClick ?? this.desktopGlobalTripleClick,
     );
   }
 
@@ -348,6 +373,10 @@ class AppSettings {
     'windowsSpanBezelPx': windowsSpanBezelPx,
     'windowsSpanJpegQuality': windowsSpanJpegQuality,
     'checkGithubUpdates': checkGithubUpdates,
+    'androidHomeTripleTapEnabled': androidHomeTripleTapEnabled,
+    'androidKeepAliveForScheduledWallpaper':
+        androidKeepAliveForScheduledWallpaper,
+    'desktopGlobalTripleClick': desktopGlobalTripleClick,
   };
 
   static AppSettings fromJson(Map<String, dynamic> j) {
@@ -400,8 +429,8 @@ class AppSettings {
       accentColorValue: (j['accentColorValue'] as num?)?.toInt() ?? 0xFF1B4332,
       denseUi: j['denseUi'] as bool? ?? false,
       showEngineLogPanel: j['showEngineLogPanel'] as bool? ?? true,
-      lastWindowWidth: (j['lastWindowWidth'] as num?)?.toDouble() ?? 1040,
-      lastWindowHeight: (j['lastWindowHeight'] as num?)?.toDouble() ?? 720,
+      lastWindowWidth: (j['lastWindowWidth'] as num?)?.toDouble() ?? 1180,
+      lastWindowHeight: (j['lastWindowHeight'] as num?)?.toDouble() ?? 780,
       uiLanguageCode: (j['uiLanguageCode'] as num?)?.toInt() ?? uiLanguageSystem,
       androidGyroParallaxEnabled:
           j['androidGyroParallaxEnabled'] as bool? ?? false,
@@ -429,6 +458,11 @@ class AppSettings {
       windowsSpanJpegQuality:
           ((j['windowsSpanJpegQuality'] as num?)?.toInt() ?? 90).clamp(60, 95),
       checkGithubUpdates: j['checkGithubUpdates'] as bool? ?? true,
+      androidHomeTripleTapEnabled:
+          j['androidHomeTripleTapEnabled'] as bool? ?? true,
+      androidKeepAliveForScheduledWallpaper:
+          j['androidKeepAliveForScheduledWallpaper'] as bool? ?? true,
+      desktopGlobalTripleClick: j['desktopGlobalTripleClick'] as bool? ?? true,
     );
   }
 
