@@ -25,7 +25,7 @@
 
 ## Установка из GitHub Releases
 
-Стабильные сборки: **[github.com/eturnercus/test21.05/releases/latest](https://github.com/eturnercus/test21.05/releases/latest)**  
+Стабильные сборки: **[github.com/eturnercus/EarthPorn_Wallpaper/releases/latest](https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest)**  
 Имена файлов в каждом релизе фиксированы (их подставляет CI):
 
 | Файл | Платформа |
@@ -36,9 +36,9 @@
 
 Прямые ссылки «последний релиз» (удобно для скриптов):
 
-- Linux: `https://github.com/eturnercus/test21.05/releases/latest/download/EarthPorn-Wallpaper-Linux-x64.tar.gz`
-- Windows: `https://github.com/eturnercus/test21.05/releases/latest/download/EarthPorn-Wallpaper-Windows-x64.zip`
-- Android: `https://github.com/eturnercus/test21.05/releases/latest/download/EarthPorn-Wallpaper-Android-debug.apk`
+- Linux: `https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download/EarthPorn-Wallpaper-Linux-x64.tar.gz`
+- Windows: `https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download/EarthPorn-Wallpaper-Windows-x64.zip`
+- Android: `https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download/EarthPorn-Wallpaper-Android-debug.apk`
 
 ### Linux (Ubuntu / Debian) — одним блоком в консоль
 
@@ -47,7 +47,7 @@
 ```bash
 sudo apt-get update && sudo apt-get install -y curl ca-certificates \
   libgtk-3-0 libayatana-appindicator3-1 libkeybinder-3.0-0
-REL="https://github.com/eturnercus/test21.05/releases/latest/download"
+REL="https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download"
 curl -fsSL "$REL/EarthPorn-Wallpaper-Linux-x64.tar.gz" -o /tmp/earthporn-linux.tar.gz
 tar -xzf /tmp/earthporn-linux.tar.gz -C /tmp
 chmod +x /tmp/bundle/earthporn_wallpaper
@@ -59,7 +59,7 @@ exec /tmp/bundle/earthporn_wallpaper
 ### Windows (PowerShell)
 
 ```powershell
-$base = "https://github.com/eturnercus/test21.05/releases/latest/download"
+$base = "https://github.com/eturnercus/EarthPorn_Wallpaper/releases/latest/download"
 $zip  = "$env:TEMP\EarthPorn-Wallpaper-Windows-x64.zip"
 Invoke-WebRequest -Uri "$base/EarthPorn-Wallpaper-Windows-x64.zip" -OutFile $zip
 $dest = "$env:LOCALAPPDATA\EarthPorn-Wallpaper"
@@ -82,7 +82,7 @@ adb install -r EarthPorn-Wallpaper-Android-debug.apk
 Если нужен запуск из репозитория с Flutter SDK:
 
 ```bash
-git clone https://github.com/eturnercus/test21.05.git
+git clone https://github.com/eturnercus/EarthPorn_Wallpaper.git
 cd test21.05/earthporn_wallpaper
 flutter pub get
 flutter run
