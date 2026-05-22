@@ -7,7 +7,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import '../models/app_settings.dart';
 
-/// Home-screen preview: optional gyro + horizontal pager parallax (Android in-app only).
+/// In-app preview image (static on Android; motion is handled by the live wallpaper engine).
 class WallpaperHeroCard extends StatefulWidget {
   const WallpaperHeroCard({
     super.key,
@@ -63,7 +63,10 @@ class _WallpaperHeroCardState extends State<WallpaperHeroCard> {
   void _syncAccel() {
     _accelSub?.cancel();
     _accelSub = null;
-    final use = defaultTargetPlatform == TargetPlatform.android &&
+    // Gyro / pager preview moved to Android live wallpaper; in-app preview stays static.
+    final isAndroidDevice = !kIsWeb && Platform.isAndroid;
+    final use = !isAndroidDevice &&
+        defaultTargetPlatform == TargetPlatform.android &&
         widget.settings.androidGyroParallaxEnabled &&
         !widget.settings.reduceMotion;
     if (!use) return;
@@ -86,13 +89,15 @@ class _WallpaperHeroCardState extends State<WallpaperHeroCard> {
     final path = widget.imagePath;
     final scheme = Theme.of(context).colorScheme;
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    final isAndroid = !kIsWeb && Platform.isAndroid;
     final maxG = widget.settings.androidGyroMaxOffsetDp.clamp(4, 48);
     final gx = (widget.settings.androidGyroInvertX ? -1 : 1) * (-_vx * 2.2);
     final gy = (widget.settings.androidGyroInvertY ? -1 : 1) * (_vy * 2.2);
-    final gyroDx = gx.clamp(-maxG, maxG) * (dpr / 2.6);
-    final gyroDy = gy.clamp(-maxG, maxG) * (dpr / 2.6);
+    final gyroDx = isAndroid ? 0.0 : (gx.clamp(-maxG, maxG) * (dpr / 2.6));
+    final gyroDy = isAndroid ? 0.0 : (gy.clamp(-maxG, maxG) * (dpr / 2.6));
 
-    final pagerOn = defaultTargetPlatform == TargetPlatform.android &&
+    final pagerOn = !isAndroid &&
+        defaultTargetPlatform == TargetPlatform.android &&
         widget.settings.androidPagerParallaxEnabled &&
         !widget.settings.reduceMotion;
     final nPages = widget.settings.androidPagerVirtualPages.clamp(3, 9);
@@ -101,7 +106,8 @@ class _WallpaperHeroCardState extends State<WallpaperHeroCard> {
     final center = (nPages - 1) / 2.0;
     final smoothPager = pagerOn ? (_page - center) * strength : 0.0;
 
-    final scale = defaultTargetPlatform == TargetPlatform.android &&
+    final scale = !isAndroid &&
+            defaultTargetPlatform == TargetPlatform.android &&
             widget.settings.androidGyroParallaxEnabled &&
             !widget.settings.reduceMotion
         ? widget.settings.androidGyroParallaxScale.clamp(1.0, 1.22)

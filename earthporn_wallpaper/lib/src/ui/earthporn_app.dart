@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../desktop/desktop_integration.dart';
 import '../models/app_settings.dart';
+import '../platform/android_wallpaper_bridge.dart';
 import '../services/github_update_check.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
@@ -135,12 +136,13 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _index = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final navCtx = earthpornNavigatorKey.currentContext;
@@ -151,7 +153,38 @@ class _MainShellState extends State<MainShell> {
           settingsRepo: Provider.of<SettingsRepository>(navCtx, listen: false),
         ),
       );
+      unawaited(_consumeAndroidLaunchAction(navCtx));
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final navCtx = earthpornNavigatorKey.currentContext;
+      if (navCtx != null) {
+        unawaited(_consumeAndroidLaunchAction(navCtx));
+      }
+    }
+  }
+
+  Future<void> _consumeAndroidLaunchAction(BuildContext navCtx) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final eng = Provider.of<WallpaperEngine>(navCtx, listen: false);
+    final action = await AndroidWallpaperBridge.getPendingLaunchAction();
+    if (action == null || !mounted) return;
+    await AndroidWallpaperBridge.clearPendingLaunchAction();
+    if (action == 'next_wallpaper') {
+      await eng.nextWallpaperQuick();
+      if (mounted) {
+        await AndroidWallpaperBridge.moveTaskToBack();
+      }
+    }
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -47,8 +48,44 @@ String _intervalHuman(int seconds) {
   return '$seconds с';
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _nextBusy = false;
+  bool _pullBusy = false;
+
+  Future<void> _runNext(BuildContext context) async {
+    if (_nextBusy) return;
+    final eng = context.read<WallpaperEngine>();
+    setState(() => _nextBusy = true);
+    await HapticFeedback.lightImpact();
+    try {
+      await eng.nextWallpaperQuick();
+      if (mounted) await HapticFeedback.mediumImpact();
+    } finally {
+      if (mounted) setState(() => _nextBusy = false);
+    }
+  }
+
+  Future<void> _runPull(BuildContext context) async {
+    if (_pullBusy) return;
+    final eng = context.read<WallpaperEngine>();
+    final reason = t(context, ru: 'Вручную', en: 'Manual');
+    setState(() => _pullBusy = true);
+    await HapticFeedback.lightImpact();
+    try {
+      final pf = await eng.advanceFromNetwork(reason: reason);
+      if (pf) unawaited(eng.triggerPrefetch());
+      if (mounted) await HapticFeedback.mediumImpact();
+    } finally {
+      if (mounted) setState(() => _pullBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +96,11 @@ class HomePage extends StatelessWidget {
       body: Consumer2<WallpaperEngine, SettingsRepository>(
         builder: (context, engine, repo, _) {
           final s = repo.settings;
+          final showTripleStrip =
+              !kIsWeb &&
+              Platform.isAndroid == false &&
+              s.windowTripleClickNext &&
+              engine.isTripleStripActive();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -105,15 +147,15 @@ class HomePage extends StatelessWidget {
                           ).animate().fadeIn(delay: 80.ms),
                           const SizedBox(height: 10),
                           Text(
-                            Platform.isAndroid
+                            !kIsWeb && Platform.isAndroid
                                 ? t(
                                     context,
                                     ru:
-                                        'Внизу — серая полоска: три быстрых тапа по ней — следующий кадр (после того как обои уже поставило приложение). '
-                                        'Кнопки выше работают всегда.',
+                                        'На рабочем столе: установите живые обои EarthPorn — там же параллакс, сдвиг при листании экранов и три быстрых тапа по свободному месту на обоях для следующего кадра (см. настройки). '
+                                        'Здесь превью статичное; кнопки ниже всегда меняют обои.',
                                     en:
-                                        'Gray strip at the bottom: three quick taps — next wallpaper (after this app has applied one). '
-                                        'Buttons above always work.',
+                                        'On the home screen: set EarthPorn live wallpaper for parallax, launcher-page shift, and three quick taps on empty wallpaper for next (see Settings). '
+                                        'Preview here is static; the buttons always change wallpapers.',
                                   )
                                 : t(
                                     context,
@@ -135,16 +177,29 @@ class HomePage extends StatelessWidget {
                           Wrap(
                             spacing: 12,
                             runSpacing: 12,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               FilledButton.icon(
-                                onPressed: () {
-                                  unawaited(
-                                    context
-                                        .read<WallpaperEngine>()
-                                        .nextWallpaperQuick(),
-                                  );
-                                },
-                                icon: const Icon(Icons.auto_awesome),
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.standard,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 22,
+                                    vertical: 14,
+                                  ),
+                                ),
+                                onPressed: _nextBusy
+                                    ? null
+                                    : () => unawaited(_runNext(context)),
+                                icon: _nextBusy
+                                    ? SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: scheme.onPrimary,
+                                        ),
+                                      )
+                                    : const Icon(Icons.auto_awesome),
                                 label: Text(
                                   t(
                                     context,
@@ -154,18 +209,26 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                               OutlinedButton.icon(
-                                onPressed: () async {
-                                  final eng = context.read<WallpaperEngine>();
-                                  final pf = await eng.advanceFromNetwork(
-                                    reason: t(
-                                      context,
-                                      ru: 'Вручную',
-                                      en: 'Manual',
-                                    ),
-                                  );
-                                  if (pf) unawaited(eng.triggerPrefetch());
-                                },
-                                icon: const Icon(Icons.cloud_sync_rounded),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.standard,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 22,
+                                    vertical: 14,
+                                  ),
+                                ),
+                                onPressed: _pullBusy
+                                    ? null
+                                    : () => unawaited(_runPull(context)),
+                                icon: _pullBusy
+                                    ? SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: scheme.primary,
+                                        ),
+                                      )
+                                    : const Icon(Icons.cloud_sync_rounded),
                                 label: Text(
                                   t(
                                     context,
@@ -329,8 +392,7 @@ class HomePage extends StatelessWidget {
                 ),
               ),
               TripleEmptyWallpaperArea(
-                enabled:
-                    s.windowTripleClickNext && engine.isTripleStripActive(),
+                enabled: showTripleStrip,
                 windowMs: s.tripleClickWindowMs,
                 minHeight: 168,
                 onTriple: () => unawaited(engine.nextWallpaperQuick()),

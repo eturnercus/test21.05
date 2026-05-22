@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EarthPorn Wallpaper</string>
+    <string name="earthporn_wallpaper_description">EarthPorn: обои с Reddit на рабочем столе — наклон устройства, смена страниц лаунчера и три нажатия по свободному месту.</string>
+    <string name="keepalive_channel_name">Фоновая смена обоев</string>
+    <string name="keepalive_channel_desc">Держит расписание смены картинок, пока приложение в фоне (как на ПК).</string>
+    <string name="keepalive_title">EarthPorn Wallpaper</string>
+    <string name="keepalive_text">Смена обоев по расписанию активна</string>
+</resources>
