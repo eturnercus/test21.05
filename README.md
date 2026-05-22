@@ -95,7 +95,8 @@ flutter run
 ## Релизы и CI
 
 - Workflow **`.github/workflows/earthporn-artifacts.yml`** собирает три артефакта на push/PR; при пуше **git-тега** вида `v1.2.3` тот же workflow **публикует GitHub Release** и прикрепляет переименованные файлы (`EarthPorn-Wallpaper-*`).
-- Создать релиз вручную: поднимите версию в `earthporn_wallpaper/pubspec.yaml`, закоммитьте, затем  
+- **Почему job «Publish GitHub Release» может быть skipped:** при **Run workflow** GitHub отдаёт `ref` ветки, а не тега, поэтому публикация по умолчанию не запускается. Чтобы выложить релиз из ручного прогона: в форме **Run workflow** включите чекбокс **«After builds, upload assets to a GitHub Release for the tag below»** и в поле **release_tag** укажите тег вида **`v1.2.3`** — он **уже должен быть запушен** на `origin` (сначала `git tag … && git push origin v…`, затем ручной запуск на нужной ветке/коммите).
+- Создать релиз только через git: поднимите версию в `earthporn_wallpaper/pubspec.yaml`, закоммитьте, затем  
   `git tag v1.2.3 && git push origin v1.2.3`  
   (тег должен совпадать с политикой версий в приложении, чтобы проверка обновлений в клиенте корректно сравнивала с GitHub).
 
