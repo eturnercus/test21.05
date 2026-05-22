@@ -52,6 +52,7 @@ class AppSettings {
     required this.windowsSpanFitMode,
     required this.windowsSpanBezelPx,
     required this.windowsSpanJpegQuality,
+    required this.checkGithubUpdates,
     this.lastWindowWidth = 1040,
     this.lastWindowHeight = 720,
   });
@@ -117,6 +118,7 @@ class AppSettings {
     windowsSpanFitMode: windowsSpanFitFill,
     windowsSpanBezelPx: 0,
     windowsSpanJpegQuality: 90,
+    checkGithubUpdates: true,
   );
 
   final String rssUrl;
@@ -182,6 +184,9 @@ class AppSettings {
   final double windowsSpanBezelPx;
   final int windowsSpanJpegQuality;
 
+  /// Query GitHub Releases (throttled) and notify if a newer tag exists.
+  final bool checkGithubUpdates;
+
   AppSettings copyWith({
     String? rssUrl,
     bool? proxyFirst,
@@ -229,6 +234,7 @@ class AppSettings {
     int? windowsSpanFitMode,
     double? windowsSpanBezelPx,
     int? windowsSpanJpegQuality,
+    bool? checkGithubUpdates,
   }) {
     return AppSettings(
       rssUrl: rssUrl ?? this.rssUrl,
@@ -290,6 +296,7 @@ class AppSettings {
       windowsSpanBezelPx: windowsSpanBezelPx ?? this.windowsSpanBezelPx,
       windowsSpanJpegQuality:
           windowsSpanJpegQuality ?? this.windowsSpanJpegQuality,
+      checkGithubUpdates: checkGithubUpdates ?? this.checkGithubUpdates,
     );
   }
 
@@ -340,6 +347,7 @@ class AppSettings {
     'windowsSpanFitMode': windowsSpanFitMode,
     'windowsSpanBezelPx': windowsSpanBezelPx,
     'windowsSpanJpegQuality': windowsSpanJpegQuality,
+    'checkGithubUpdates': checkGithubUpdates,
   };
 
   static AppSettings fromJson(Map<String, dynamic> j) {
@@ -420,6 +428,7 @@ class AppSettings {
           (j['windowsSpanBezelPx'] as num?)?.toDouble() ?? 0,
       windowsSpanJpegQuality:
           ((j['windowsSpanJpegQuality'] as num?)?.toInt() ?? 90).clamp(60, 95),
+      checkGithubUpdates: j['checkGithubUpdates'] as bool? ?? true,
     );
   }
 

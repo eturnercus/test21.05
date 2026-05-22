@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../desktop/desktop_integration.dart';
 import '../models/app_settings.dart';
+import '../services/github_update_check.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'app_keys.dart';
@@ -135,6 +137,22 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navCtx = earthpornNavigatorKey.currentContext;
+      if (navCtx == null) return;
+      unawaited(
+        GithubUpdateCheck.runIfEligible(
+          context: navCtx,
+          settingsRepo: Provider.of<SettingsRepository>(navCtx, listen: false),
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -4,6 +4,7 @@ name: EarthPorn build artifacts
 on:
   push:
     branches: [main, 'cursor/**']
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -74,3 +75,48 @@ jobs:
         with:
           name: earthporn-windows-portable-zip
           path: earthporn-windows-portable.zip
+
+  publish-github-release:
+    name: Publish GitHub Release (tag v* only)
+    needs: [android-debug-apk, linux-portable-bundle, windows-portable-zip]
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: earthporn-android-debug-apk
+          path: rel
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: earthporn-linux-portable-tar-gz
+          path: rel
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: earthporn-windows-portable-zip
+          path: rel
+
+      - name: Normalize release asset names
+        run: |
+          set -eux
+          cd rel
+          test -f app-debug.apk
+          mv -f app-debug.apk EarthPorn-Wallpaper-Android-debug.apk
+          mv -f earthporn-linux-portable.tar.gz EarthPorn-Wallpaper-Linux-x64.tar.gz
+          mv -f earthporn-windows-portable.zip EarthPorn-Wallpaper-Windows-x64.zip
+          ls -la
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            rel/EarthPorn-Wallpaper-Android-debug.apk
+            rel/EarthPorn-Wallpaper-Linux-x64.tar.gz
+            rel/EarthPorn-Wallpaper-Windows-x64.zip

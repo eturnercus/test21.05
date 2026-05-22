@@ -13,6 +13,7 @@ import '../desktop/autostart_service.dart';
 import '../desktop/desktop_integration.dart';
 import '../models/app_settings.dart';
 import '../models/wallpaper_orientation.dart';
+import '../services/github_update_check.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'app_locale_text.dart';
@@ -57,6 +58,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   int _uiLanguageCode = AppSettings.uiLanguageSystem;
   bool _tripleTapOnlyIfAppliedByApp = true;
+  bool _checkGithubUpdates = true;
 
   bool _androidGyroParallaxEnabled = false;
   double _androidGyroParallaxScale = 1.08;
@@ -106,6 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _accent = s.accentColorValue;
     _uiLanguageCode = s.uiLanguageCode;
     _tripleTapOnlyIfAppliedByApp = s.tripleTapOnlyIfAppliedByApp;
+    _checkGithubUpdates = s.checkGithubUpdates;
     _androidGyroParallaxEnabled = s.androidGyroParallaxEnabled;
     _androidGyroParallaxScale = s.androidGyroParallaxScale;
     _androidGyroMaxOffsetDp = s.androidGyroMaxOffsetDp;
@@ -199,6 +202,7 @@ class _SettingsPageState extends State<SettingsPage> {
       windowsSpanFitMode: _windowsSpanFitMode,
       windowsSpanBezelPx: _windowsSpanBezelPx,
       windowsSpanJpegQuality: _windowsSpanJpegQuality,
+      checkGithubUpdates: _checkGithubUpdates,
     );
     await repo.save(next);
     await engine.reloadSettings();
@@ -323,6 +327,46 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: _tripleTapOnlyIfAppliedByApp,
                       onChanged: (v) =>
                           setState(() => _tripleTapOnlyIfAppliedByApp = v),
+                    ),
+                    SwitchListTile(
+                      title: Text(
+                        t(
+                          context,
+                          ru: 'Проверять обновления на GitHub',
+                          en: 'Check for updates on GitHub',
+                        ),
+                      ),
+                      subtitle: Text(
+                        t(
+                          context,
+                          ru:
+                              'Не чаще раза в 8 часов. Запрос только к api.github.com (публичный releases/latest).',
+                          en:
+                              'At most once every 8 hours. Calls public api.github.com/releases/latest only.',
+                        ),
+                        softWrap: true,
+                      ),
+                      value: _checkGithubUpdates,
+                      onChanged: (v) => setState(() => _checkGithubUpdates = v),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => unawaited(
+                          GithubUpdateCheck.runIfEligible(
+                            context: context,
+                            settingsRepo: context.read<SettingsRepository>(),
+                            force: true,
+                          ),
+                        ),
+                        child: Text(
+                          t(
+                            context,
+                            ru: 'Проверить обновления сейчас',
+                            en: 'Check for updates now',
+                          ),
+                        ),
+                      ),
                     ),
                     Text(
                       t(
