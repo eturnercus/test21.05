@@ -30,6 +30,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _rss;
   late TextEditingController _interval;
   late TextEditingController _maxCache;
+  late TextEditingController _prefetchSlots;
+  late TextEditingController _wallpaperStorage;
   late TextEditingController _minW;
   late TextEditingController _minH;
   late TextEditingController _hashCap;
@@ -76,13 +78,19 @@ class _SettingsPageState extends State<SettingsPage> {
   double _windowsSpanBezelPx = 0;
   int _windowsSpanJpegQuality = 90;
 
+  String? _resolvedCacheDir;
+
   @override
   void initState() {
     super.initState();
     final s = context.read<SettingsRepository>().settings;
     _rss = TextEditingController(text: s.rssUrl);
-    _interval = TextEditingController(text: '${s.intervalSeconds}');
+    _interval = TextEditingController(
+      text: '${(s.intervalSeconds / 60).round().clamp(1, 10080)}',
+    );
     _maxCache = TextEditingController(text: '${s.maxCachedFiles}');
+    _prefetchSlots = TextEditingController(text: '${s.prefetchSlots}');
+    _wallpaperStorage = TextEditingController(text: s.wallpaperStoragePath);
     _minW = TextEditingController(text: '${s.minWidth}');
     _minH = TextEditingController(text: '${s.minHeight}');
     _hashCap = TextEditingController(text: '${s.maxUsedHashEntries}');
@@ -130,6 +138,15 @@ class _SettingsPageState extends State<SettingsPage> {
     } else {
       _hotPreset = 'w';
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshResolvedCachePath());
+    });
+  }
+
+  Future<void> _refreshResolvedCachePath() async {
+    final eng = context.read<WallpaperEngine>();
+    final path = await eng.wallpaperCacheDirectoryPath();
+    if (mounted) setState(() => _resolvedCacheDir = path);
   }
 
   @override
@@ -137,6 +154,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _rss.dispose();
     _interval.dispose();
     _maxCache.dispose();
+    _prefetchSlots.dispose();
+    _wallpaperStorage.dispose();
     _minW.dispose();
     _minH.dispose();
     _hashCap.dispose();
@@ -156,11 +175,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _save() async {
     final repo = context.read<SettingsRepository>();
     final engine = context.read<WallpaperEngine>();
+    final minutes =
+        int.tryParse(_interval.text.trim()) ??
+        (AppSettings.defaultIntervalSeconds ~/ 60);
+    final intervalSeconds = (minutes * 60).clamp(60, 604800);
     final next = repo.settings.copyWith(
       rssUrl: _rss.text.trim(),
       proxyFirst: _proxyFirst,
-      intervalSeconds:
-          int.tryParse(_interval.text) ?? AppSettings.defaultIntervalSeconds,
+      intervalSeconds: intervalSeconds,
       maxCachedFiles: int.tryParse(_maxCache.text) ?? 10,
       minWidth: int.tryParse(_minW.text) ?? 1920,
       minHeight: int.tryParse(_minH.text) ?? 1080,
@@ -174,6 +196,8 @@ class _SettingsPageState extends State<SettingsPage> {
       hotkeyKey: _keyFromPreset(),
       hotkeyModifiers: const [HotKeyModifier.alt, HotKeyModifier.shift],
       prefetchNext: _prefetch,
+      prefetchSlots: (int.tryParse(_prefetchSlots.text.trim()) ?? 1).clamp(1, 8),
+      wallpaperStoragePath: _wallpaperStorage.text.trim(),
       filterNsfw: _nsfw,
       skipUsedHashes: _skipUsed,
       maxUsedHashEntries: int.tryParse(_hashCap.text) ?? 4000,
@@ -210,6 +234,8 @@ class _SettingsPageState extends State<SettingsPage> {
     await AutostartService.apply(next);
     if (!mounted) return;
     await refreshDesktopChrome(context);
+    if (!mounted) return;
+    await _refreshResolvedCachePath();
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -401,26 +427,38 @@ class _SettingsPageState extends State<SettingsPage> {
                       runSpacing: 8,
                       children: [
                         ActionChip(
-                          label: const Text('30 мин · по умолчанию'),
+                          label: Text(
+                            t(
+                              context,
+                              ru: '30 мин · по умолчанию',
+                              en: '30 min · default',
+                            ),
+                          ),
                           onPressed: () => setState(
                             () => _interval.text =
-                                '${AppSettings.defaultIntervalSeconds}',
+                                '${AppSettings.defaultIntervalSeconds ~/ 60}',
                           ),
                         ),
                         ActionChip(
-                          label: const Text('60 мин'),
+                          label: Text(
+                            t(context, ru: '60 мин', en: '60 min'),
+                          ),
                           onPressed: () =>
-                              setState(() => _interval.text = '3600'),
+                              setState(() => _interval.text = '60'),
                         ),
                         ActionChip(
-                          label: const Text('90 мин'),
+                          label: Text(
+                            t(context, ru: '90 мин', en: '90 min'),
+                          ),
                           onPressed: () =>
-                              setState(() => _interval.text = '5400'),
+                              setState(() => _interval.text = '90'),
                         ),
                         ActionChip(
-                          label: const Text('6 ч'),
+                          label: Text(
+                            t(context, ru: '6 ч', en: '6 h'),
+                          ),
                           onPressed: () =>
-                              setState(() => _interval.text = '21600'),
+                              setState(() => _interval.text = '360'),
                         ),
                       ],
                     ),
@@ -428,10 +466,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     TextField(
                       controller: _interval,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText:
-                            'Интервал смены (секунды, ≥60). По умолчанию 1800 = 30 мин',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          ru:
+                              'Интервал смены обоев (минуты, 1–10080). По умолчанию 30',
+                          en:
+                              'Wallpaper change interval (minutes, 1–10080). Default 30',
+                        ),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -784,6 +827,43 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: _prefetch,
                       onChanged: (v) => setState(() => _prefetch = v),
                     ),
+                    if (_prefetch) ...[
+                      TextField(
+                        controller: _prefetchSlots,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: t(
+                            context,
+                            ru: 'Сколько картинок держать в запасе (1–8)',
+                            en: 'How many images to prefetch (1–8)',
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    TextField(
+                      controller: _wallpaperStorage,
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          ru:
+                              'Папка для файлов обоев и запаса (пусто = каталог приложения)',
+                          en:
+                              'Wallpaper & prefetch folder (empty = app default)',
+                        ),
+                        hintText: '~/Pictures/EarthPornWallpaper',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    if (_resolvedCacheDir != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: SelectableText(
+                          '${t(context, ru: 'Сейчас используется:', en: 'Using folder:')} $_resolvedCacheDir',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                     if (!kIsWeb &&
                         (Platform.isWindows || Platform.isLinux)) ...[
                       const Divider(height: 32),

@@ -26,6 +26,8 @@ class AppSettings {
     required this.hotkeyKey,
     required this.hotkeyModifiers,
     required this.prefetchNext,
+    required this.prefetchSlots,
+    required this.wallpaperStoragePath,
     required this.filterNsfw,
     required this.skipUsedHashes,
     required this.maxUsedHashEntries,
@@ -92,6 +94,8 @@ class AppSettings {
     hotkeyKey: LogicalKeyboardKey.keyW,
     hotkeyModifiers: const [HotKeyModifier.alt, HotKeyModifier.shift],
     prefetchNext: true,
+    prefetchSlots: 1,
+    wallpaperStoragePath: '',
     filterNsfw: true,
     skipUsedHashes: true,
     maxUsedHashEntries: 4000,
@@ -142,6 +146,13 @@ class AppSettings {
   final LogicalKeyboardKey hotkeyKey;
   final List<HotKeyModifier> hotkeyModifiers;
   final bool prefetchNext;
+
+  /// How many `_prefetch_N` files to keep (1–8). 1 matches legacy single-slot behaviour.
+  final int prefetchSlots;
+
+  /// Optional absolute directory for `wp_*.jpg` / prefetch files. Empty = app support dir.
+  final String wallpaperStoragePath;
+
   final bool filterNsfw;
   final bool skipUsedHashes;
   final int maxUsedHashEntries;
@@ -206,6 +217,8 @@ class AppSettings {
     LogicalKeyboardKey? hotkeyKey,
     List<HotKeyModifier>? hotkeyModifiers,
     bool? prefetchNext,
+    int? prefetchSlots,
+    String? wallpaperStoragePath,
     bool? filterNsfw,
     bool? skipUsedHashes,
     int? maxUsedHashEntries,
@@ -258,6 +271,9 @@ class AppSettings {
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
       prefetchNext: prefetchNext ?? this.prefetchNext,
+      prefetchSlots: prefetchSlots ?? this.prefetchSlots,
+      wallpaperStoragePath:
+          wallpaperStoragePath ?? this.wallpaperStoragePath,
       filterNsfw: filterNsfw ?? this.filterNsfw,
       skipUsedHashes: skipUsedHashes ?? this.skipUsedHashes,
       maxUsedHashEntries: maxUsedHashEntries ?? this.maxUsedHashEntries,
@@ -319,6 +335,8 @@ class AppSettings {
     'hotkeyKeyId': hotkeyKey.keyId,
     'hotkeyModifiers': hotkeyModifiers.map((m) => m.name).toList(),
     'prefetchNext': prefetchNext,
+    'prefetchSlots': prefetchSlots,
+    'wallpaperStoragePath': wallpaperStoragePath,
     'filterNsfw': filterNsfw,
     'skipUsedHashes': skipUsedHashes,
     'maxUsedHashEntries': maxUsedHashEntries,
@@ -388,6 +406,8 @@ class AppSettings {
       hotkeyKey: key,
       hotkeyModifiers: mods,
       prefetchNext: j['prefetchNext'] as bool? ?? true,
+      prefetchSlots: ((j['prefetchSlots'] as num?)?.toInt() ?? 1).clamp(1, 8),
+      wallpaperStoragePath: j['wallpaperStoragePath'] as String? ?? '',
       filterNsfw: j['filterNsfw'] as bool? ?? true,
       skipUsedHashes: j['skipUsedHashes'] as bool? ?? true,
       maxUsedHashEntries: (j['maxUsedHashEntries'] as num?)?.toInt() ?? 4000,

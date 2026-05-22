@@ -38,6 +38,10 @@ class WallpaperEngine extends ChangeNotifier {
   final Lock _lock = Lock();
 
   Timer? _timer;
+  DateTime _nextScheduledWallpaperAt = DateTime.now();
+  bool _scheduledWallpaperTick = false;
+  static const Duration _schedulePollInterval = Duration(seconds: 15);
+
   String _log = '';
   String? _currentWallpaperPath;
   bool _running = false;
@@ -112,6 +116,21 @@ class WallpaperEngine extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// After OS sleep or app resume: catch up if a scheduled rotation was missed.
+  void onAppLifecycleResumed() {
+    if (!_running) return;
+    if (!_scheduledWallpaperTick &&
+        !DateTime.now().isBefore(_nextScheduledWallpaperAt)) {
+      unawaited(_schedulePollCallback());
+    }
+  }
+
+  /// Absolute directory used for `wp_*.jpg`, prefetch files, and temp downloads.
+  Future<String> wallpaperCacheDirectoryPath() async {
+    final d = await _wallpaperDir();
+    return d.path;
+  }
+
   Future<void> start() async {
     await _settingsRepository.load();
     await _ensureDirs();
@@ -125,15 +144,27 @@ class WallpaperEngine extends ChangeNotifier {
 
   void _armTimer() {
     _timer?.cancel();
+    if (!_running) return;
     final sec = _settingsRepository.settings.intervalSeconds.clamp(60, 604800);
-    _timer = Timer.periodic(Duration(seconds: sec), (_) {
-      unawaited(_scheduledTick());
+    _nextScheduledWallpaperAt = DateTime.now().add(Duration(seconds: sec));
+    _timer = Timer.periodic(_schedulePollInterval, (_) {
+      unawaited(_schedulePollCallback());
     });
   }
 
-  Future<void> _scheduledTick() async {
-    final pf = await advanceFromNetwork(reason: 'По расписанию');
-    if (pf) unawaited(_prefetchWorker());
+  Future<void> _schedulePollCallback() async {
+    if (!_running) return;
+    if (_scheduledWallpaperTick) return;
+    if (DateTime.now().isBefore(_nextScheduledWallpaperAt)) return;
+    _scheduledWallpaperTick = true;
+    try {
+      final pf = await advanceFromNetwork(reason: 'По расписанию');
+      if (pf) unawaited(_prefetchWorker());
+    } finally {
+      _scheduledWallpaperTick = false;
+    }
+    final sec = _settingsRepository.settings.intervalSeconds.clamp(60, 604800);
+    _nextScheduledWallpaperAt = DateTime.now().add(Duration(seconds: sec));
   }
 
   void updateTimerFromSettings() {
@@ -208,34 +239,23 @@ class WallpaperEngine extends ChangeNotifier {
         return;
       }
       final dir = await _wallpaperDir();
-      final prefetch = File(p.join(dir.path, '_prefetch_next.jpg'));
-      final meta = File(p.join(dir.path, '_prefetch_meta.txt'));
-      if (prefetch.existsSync()) {
-        if (await _validateFile(prefetch)) {
-          final dest = File(
-            p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'),
-          );
-          await prefetch.rename(dest.path);
-          final ok = await _apply.apply(dest, settings: settings);
-          if (ok) {
-            await _rememberAppliedWallpaper(dest.path);
-            if (meta.existsSync()) {
-              final h = (await meta.readAsString()).trim();
-              if (h.isNotEmpty) {
-                await _registerUsed(h, settings.maxUsedHashEntries);
-              }
-              await _safeDelete(meta);
-            }
-            await _rotateCache(dir);
-            _append('Быстрая смена из запаса (prefetch).');
-            notifyListeners();
-            prefetchLater = settings.prefetchNext;
-            return;
-          }
-          await _safeDelete(dest);
+      final legacyImg = File(p.join(dir.path, '_prefetch_next.jpg'));
+      final legacyMeta = File(p.join(dir.path, '_prefetch_meta.txt'));
+      if (legacyImg.existsSync()) {
+        if (await _tryConsumePrefetchFile(dir, legacyImg, legacyMeta)) {
+          prefetchLater = settings.prefetchNext;
+          return;
         }
-        await _safeDelete(prefetch);
-        await _safeDelete(meta);
+      }
+      final cap = settings.prefetchSlots.clamp(1, 8);
+      for (var slot = 0; slot < cap; slot++) {
+        final img = File(p.join(dir.path, '_prefetch_$slot.jpg'));
+        final meta = File(p.join(dir.path, '_prefetch_$slot.meta'));
+        if (!img.existsSync()) continue;
+        if (await _tryConsumePrefetchFile(dir, img, meta)) {
+          prefetchLater = settings.prefetchNext;
+          return;
+        }
       }
     });
     if (prefetchLater) {
@@ -244,6 +264,57 @@ class WallpaperEngine extends ChangeNotifier {
     }
     final pf = await advanceFromNetwork(reason: 'Быстрая смена (без prefetch)');
     if (pf) unawaited(_prefetchWorker());
+  }
+
+  Future<bool> _tryConsumePrefetchFile(
+    Directory dir,
+    File prefetch,
+    File meta,
+  ) async {
+    if (!await _validateFile(prefetch)) {
+      await _safeDelete(prefetch);
+      await _safeDelete(meta);
+      return false;
+    }
+    final dest = File(
+      p.join(dir.path, 'wp_${DateTime.now().millisecondsSinceEpoch}.jpg'),
+    );
+    await prefetch.rename(dest.path);
+    final ok = await _apply.apply(dest, settings: settings);
+    if (!ok) {
+      await _safeDelete(dest);
+      await _safeDelete(meta);
+      return false;
+    }
+    var hash = '';
+    String? title;
+    if (meta.existsSync()) {
+      final raw = (await meta.readAsString()).trim();
+      if (raw.isNotEmpty) {
+        final i = raw.indexOf('\n');
+        if (i < 0) {
+          hash = raw;
+        } else {
+          hash = raw.substring(0, i).trim();
+          final rest = raw.substring(i + 1).trim();
+          title = rest.isEmpty ? null : rest;
+        }
+      }
+      await _safeDelete(meta);
+    }
+    if (hash.isNotEmpty) {
+      await _registerUsed(hash, settings.maxUsedHashEntries);
+    }
+    await _rememberAppliedWallpaper(dest.path);
+    await _rotateCache(dir);
+    if (title != null && title.isNotEmpty) {
+      _append('Обои: $title');
+    } else {
+      _append('Обои: (из запаса)');
+    }
+    _append('Быстрая смена из запаса (prefetch).');
+    notifyListeners();
+    return true;
   }
 
   /// Returns whether prefetch should run after this call completes.
@@ -327,9 +398,20 @@ class WallpaperEngine extends ChangeNotifier {
   }
 
   Future<void> _prefetchWorker() async {
-    await _lock.synchronized(() async {
-      if (!await _wifiOk()) return;
-      final s = settings;
+    if (!await _wifiOk()) return;
+    final s = settings;
+    final n = s.prefetchSlots.clamp(1, 8);
+    final dir = await _wallpaperDir();
+    for (var slot = n; slot < 8; slot++) {
+      await _safeDelete(File(p.join(dir.path, '_prefetch_$slot.jpg')));
+      await _safeDelete(File(p.join(dir.path, '_prefetch_$slot.meta')));
+    }
+    for (var slot = 0; slot < n; slot++) {
+      final img = File(p.join(dir.path, '_prefetch_$slot.jpg'));
+      final meta = File(p.join(dir.path, '_prefetch_$slot.meta'));
+      if (img.existsSync() && await _validateFile(img)) continue;
+      await _safeDelete(img);
+      await _safeDelete(meta);
       List<WallpaperCandidate> list;
       try {
         list = await _gatherFeedCandidates(s);
@@ -338,31 +420,41 @@ class WallpaperEngine extends ChangeNotifier {
       }
       if (list.isEmpty) return;
       final used = await _loadUsedHashes();
-      final dir = await _wallpaperDir();
-      final prefetch = File(p.join(dir.path, '_prefetch_next.jpg'));
-      final meta = File(p.join(dir.path, '_prefetch_meta.txt'));
-      await _safeDelete(prefetch);
-      await _safeDelete(meta);
-
+      var placed = false;
       for (final c in list) {
         final h = imageIdentityHash(c.url);
         if (s.skipUsedHashes && used.contains(h)) continue;
         if (!titleOrientationMatches(c.title, s.orientation)) continue;
-        final okDl = await _download(c.url, prefetch, s.httpTimeoutSeconds);
+        final tmp = File(
+          p.join(
+            dir.path,
+            '_tmp_prefetch_${slot}_${DateTime.now().microsecondsSinceEpoch}.part',
+          ),
+        );
+        final okDl = await _download(c.url, tmp, s.httpTimeoutSeconds);
         if (!okDl) {
-          await _safeDelete(prefetch);
+          await _safeDelete(tmp);
           continue;
         }
-        if (!await _validateFile(prefetch)) {
-          await _safeDelete(prefetch);
+        if (!await _validateFile(tmp)) {
+          await _safeDelete(tmp);
           continue;
         }
-        await meta.writeAsString(h, flush: true);
-        _append('Запасная картинка загружена.');
+        await _lock.synchronized(() async {
+          if (img.existsSync()) {
+            await _safeDelete(tmp);
+            return;
+          }
+          await tmp.rename(img.path);
+          await meta.writeAsString('$h\n${c.title}', flush: true);
+        });
+        _append('Запасная картинка загружена: ${c.title}');
         notifyListeners();
-        return;
+        placed = true;
+        break;
       }
-    });
+      if (!placed) return;
+    }
   }
 
   Future<bool> _download(String url, File dest, int timeoutSec) async {
@@ -478,7 +570,39 @@ class WallpaperEngine extends ChangeNotifier {
     return true;
   }
 
+  String _expandUserPath(String raw) {
+    var t = raw.trim();
+    if (t.isEmpty) return '';
+    if (t == '~') {
+      return Platform.environment['HOME'] ??
+          Platform.environment['USERPROFILE'] ??
+          '';
+    }
+    if (t.startsWith('~/') || t.startsWith('~\\')) {
+      final home = Platform.environment['HOME'] ??
+          Platform.environment['USERPROFILE'] ??
+          '';
+      if (home.isEmpty) return t;
+      return p.join(home, t.substring(2));
+    }
+    return t;
+  }
+
   Future<Directory> _wallpaperDir() async {
+    final configured = _expandUserPath(settings.wallpaperStoragePath);
+    if (configured.isNotEmpty) {
+      try {
+        final d = Directory(configured);
+        if (!await d.exists()) {
+          await d.create(recursive: true);
+        }
+        return d;
+      } catch (e) {
+        _append(
+          'Каталог из настроек недоступен ($configured): $e. Используется каталог приложения.',
+        );
+      }
+    }
     final base = await getApplicationSupportDirectory();
     final d = Directory(p.join(base.path, 'wallpapers'));
     if (!d.existsSync()) d.createSync(recursive: true);

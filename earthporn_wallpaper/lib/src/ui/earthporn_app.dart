@@ -135,12 +135,13 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _index = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final navCtx = earthpornNavigatorKey.currentContext;
@@ -152,6 +153,20 @@ class _MainShellState extends State<MainShell> {
         ),
       );
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final navCtx = earthpornNavigatorKey.currentContext;
+    if (navCtx == null) return;
+    Provider.of<WallpaperEngine>(navCtx, listen: false).onAppLifecycleResumed();
   }
 
   @override

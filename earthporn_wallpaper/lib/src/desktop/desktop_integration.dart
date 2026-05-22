@@ -11,6 +11,7 @@ import '../models/app_settings.dart';
 import '../services/settings_repository.dart';
 import '../services/wallpaper_engine.dart';
 import 'autostart_service.dart';
+import 'bundled_desktop_icon.dart';
 import '../ui/app_keys.dart';
 import '../ui/theme.dart';
 
@@ -58,6 +59,12 @@ class DesktopIntegration with TrayListener, WindowListener {
 
     await windowManager.setPreventClose(true);
     await windowManager.setTitle(appTitle());
+    try {
+      final iconPath = await resolveBundledPngPath('assets/app_icon.png');
+      await windowManager.setIcon(iconPath);
+    } catch (e) {
+      debugPrint('windowManager.setIcon: $e');
+    }
 
     if (s.showTrayIcon) {
       await _setupTray(s);
@@ -130,7 +137,8 @@ class DesktopIntegration with TrayListener, WindowListener {
       debugPrint('tray setContextMenu: $e');
     }
     try {
-      await trayManager.setIcon('assets/tray.png');
+      final iconPath = await resolveBundledPngPath('assets/app_icon.png');
+      await trayManager.setIcon(iconPath);
     } catch (e) {
       debugPrint('tray setIcon: $e');
     }
