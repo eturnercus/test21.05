@@ -13,6 +13,7 @@ import '../services/wallpaper_engine.dart';
 import 'autostart_service.dart';
 import '../ui/app_keys.dart';
 import '../ui/theme.dart';
+import 'windows_llmouse_triple.dart';
 
 /// Tray, window close-to-tray, global hotkey (Windows / Linux desktop).
 class DesktopIntegration with TrayListener, WindowListener {
@@ -67,7 +68,20 @@ class DesktopIntegration with TrayListener, WindowListener {
       } catch (_) {}
     }
     await d._registerHotkey(s);
+    d._syncWindowsMouseHook(s);
     await AutostartService.apply(s);
+  }
+
+  void _syncWindowsMouseHook(AppSettings s) {
+    if (!Platform.isWindows) {
+      WindowsLlMouseTriple.stop();
+      return;
+    }
+    if (s.desktopGlobalTripleClick) {
+      WindowsLlMouseTriple.start();
+    } else {
+      WindowsLlMouseTriple.stop();
+    }
   }
 
   static Future<void> refreshTrayAndHotkey(
@@ -130,9 +144,9 @@ class DesktopIntegration with TrayListener, WindowListener {
       debugPrint('tray setContextMenu: $e');
     }
     try {
-      await trayManager.setIcon('assets/tray.png');
+      await trayManager.setIcon('assets/app_icon.png');
     } catch (e) {
-      debugPrint('tray setIcon: $e');
+      debugPrint('tray setIcon app_icon: $e');
     }
     try {
       await trayManager.setToolTip('EarthPorn — ${AppSettings.creator}');
@@ -210,6 +224,7 @@ class DesktopIntegration with TrayListener, WindowListener {
   }
 
   void dispose() {
+    WindowsLlMouseTriple.stop();
     windowManager.removeListener(this);
     trayManager.removeListener(this);
   }

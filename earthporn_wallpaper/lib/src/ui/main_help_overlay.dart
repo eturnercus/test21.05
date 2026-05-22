@@ -138,9 +138,9 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
                                   text: t(
                                     context,
                                     ru:
-                                        'Главная: кнопки «Следующий кадр» и «Тянуть из сети» — основной способ смены. При нажатии есть лёгкая вибрация и индикатор загрузки.',
+                                        'Главная: кнопки «Следующий кадр» и «Тянуть из сети» — основной способ смены. На время работы на кнопке показывается индикатор загрузки.',
                                     en:
-                                        'Home: “Next” and “Pull from network” are the main actions. You get light haptics and a small spinner while work runs.',
+                                        'Home: “Next” and “Pull from network” are the main actions. A small spinner appears on the button while work runs.',
                                   ),
                                 ),
                                 if (defaultTargetPlatform ==
@@ -263,6 +263,9 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
           '• Triple-tap strip at the bottom exists on Windows/Linux only. On Android, use live wallpaper triple-tap on the home screen.\n',
         )
         ..writeln(
+          '• Windows: optional “triple left-click on empty desktop” (Settings) notifies the already running instance over loopback — no second window. Linux has no global click hook here; run the same binary with `--earthporn-next` while the app is open for the same signal.\n',
+        )
+        ..writeln(
           '• Global hotkey on Windows may need administrator policies in rare cases — not required for wallpapers.\n',
         );
       if (isDesktop) {
@@ -297,6 +300,9 @@ class _MainHelpOverlayState extends State<MainHelpOverlay> {
       )
       ..writeln(
         '• Серая полоска с тройным нажатием внизу — только Windows/Linux. На Android используйте три тапа по обоям на рабочем столе (живые обои).\n',
+      )
+      ..writeln(
+        '• Windows: опция «три ЛКМ по пустому столу» (настройки) шлёт команду уже запущенному экземпляру по loopback — без второго окна. В Linux глобального хука мыши нет; можно запустить тот же бинарник с `--earthporn-next`, пока приложение открыто — тот же эффект.\n',
       )
       ..writeln(
         '• Глобальное сочетание клавиш на Windows в редких случаях упирается в политики — к обоям это не относится.\n',

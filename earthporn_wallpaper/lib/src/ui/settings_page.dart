@@ -78,6 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
   int _windowsSpanFitMode = AppSettings.windowsSpanFitFill;
   double _windowsSpanBezelPx = 0;
   int _windowsSpanJpegQuality = 90;
+  bool _desktopGlobalTripleClick = true;
 
   @override
   void initState() {
@@ -129,6 +130,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _windowsSpanFitMode = s.windowsSpanFitMode;
     _windowsSpanBezelPx = s.windowsSpanBezelPx;
     _windowsSpanJpegQuality = s.windowsSpanJpegQuality;
+    _desktopGlobalTripleClick = s.desktopGlobalTripleClick;
     if (s.hotkeyKey == LogicalKeyboardKey.keyN) {
       _hotPreset = 'n';
     } else if (s.hotkeyKey == LogicalKeyboardKey.keyE) {
@@ -212,6 +214,7 @@ class _SettingsPageState extends State<SettingsPage> {
       androidHomeTripleTapEnabled: _androidHomeTripleTapEnabled,
       androidKeepAliveForScheduledWallpaper:
           _androidKeepAliveForScheduledWallpaper,
+      desktopGlobalTripleClick: _desktopGlobalTripleClick,
     );
     await repo.save(next);
     await engine.reloadSettings();
@@ -934,6 +937,29 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         value: _winTriple,
                         onChanged: (v) => setState(() => _winTriple = v),
+                      ),
+                      SwitchListTile(
+                        title: Text(
+                          t(
+                            context,
+                            ru: 'Три ЛКМ в любом месте (глобально, Windows)',
+                            en: 'Three left-clicks anywhere (global, Windows)',
+                          ),
+                          softWrap: true,
+                        ),
+                        subtitle: Text(
+                          t(
+                            context,
+                            ru:
+                                'Только Windows: низкоуровневый хук мыши. На Linux/macOS можно вызвать второй экземпляр с аргументом --earthporn-next (без окна).',
+                            en:
+                                'Windows only: low-level mouse hook. On Linux/macOS run a second instance with --earthporn-next (no window).',
+                          ),
+                          softWrap: true,
+                        ),
+                        value: _desktopGlobalTripleClick,
+                        onChanged: (v) =>
+                            setState(() => _desktopGlobalTripleClick = v),
                       ),
                       TextField(
                         controller: _tripleMs,

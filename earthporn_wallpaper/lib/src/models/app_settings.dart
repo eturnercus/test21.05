@@ -55,6 +55,7 @@ class AppSettings {
     required this.checkGithubUpdates,
     required this.androidHomeTripleTapEnabled,
     required this.androidKeepAliveForScheduledWallpaper,
+    required this.desktopGlobalTripleClick,
     this.lastWindowWidth = 1180,
     this.lastWindowHeight = 780,
   });
@@ -123,6 +124,7 @@ class AppSettings {
     checkGithubUpdates: true,
     androidHomeTripleTapEnabled: true,
     androidKeepAliveForScheduledWallpaper: true,
+    desktopGlobalTripleClick: true,
   );
 
   final String rssUrl;
@@ -197,6 +199,9 @@ class AppSettings {
   /// Android: foreground notification keeps process alive so interval timer matches desktop.
   final bool androidKeepAliveForScheduledWallpaper;
 
+  /// Windows: low-level mouse hook (three LMB). Linux/macOS: use tray/hotkey/strip; optional `--earthporn-next` CLI.
+  final bool desktopGlobalTripleClick;
+
   AppSettings copyWith({
     String? rssUrl,
     bool? proxyFirst,
@@ -247,6 +252,7 @@ class AppSettings {
     bool? checkGithubUpdates,
     bool? androidHomeTripleTapEnabled,
     bool? androidKeepAliveForScheduledWallpaper,
+    bool? desktopGlobalTripleClick,
   }) {
     return AppSettings(
       rssUrl: rssUrl ?? this.rssUrl,
@@ -314,6 +320,8 @@ class AppSettings {
       androidKeepAliveForScheduledWallpaper:
           androidKeepAliveForScheduledWallpaper ??
               this.androidKeepAliveForScheduledWallpaper,
+      desktopGlobalTripleClick:
+          desktopGlobalTripleClick ?? this.desktopGlobalTripleClick,
     );
   }
 
@@ -368,6 +376,7 @@ class AppSettings {
     'androidHomeTripleTapEnabled': androidHomeTripleTapEnabled,
     'androidKeepAliveForScheduledWallpaper':
         androidKeepAliveForScheduledWallpaper,
+    'desktopGlobalTripleClick': desktopGlobalTripleClick,
   };
 
   static AppSettings fromJson(Map<String, dynamic> j) {
@@ -453,6 +462,7 @@ class AppSettings {
           j['androidHomeTripleTapEnabled'] as bool? ?? true,
       androidKeepAliveForScheduledWallpaper:
           j['androidKeepAliveForScheduledWallpaper'] as bool? ?? true,
+      desktopGlobalTripleClick: j['desktopGlobalTripleClick'] as bool? ?? true,
     );
   }
 

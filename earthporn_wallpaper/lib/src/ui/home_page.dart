@@ -63,10 +63,8 @@ class _HomePageState extends State<HomePage> {
     if (_nextBusy) return;
     final eng = context.read<WallpaperEngine>();
     setState(() => _nextBusy = true);
-    await HapticFeedback.lightImpact();
     try {
       await eng.nextWallpaperQuick();
-      if (mounted) await HapticFeedback.mediumImpact();
     } finally {
       if (mounted) setState(() => _nextBusy = false);
     }
@@ -77,11 +75,9 @@ class _HomePageState extends State<HomePage> {
     final eng = context.read<WallpaperEngine>();
     final reason = t(context, ru: 'Вручную', en: 'Manual');
     setState(() => _pullBusy = true);
-    await HapticFeedback.lightImpact();
     try {
       final pf = await eng.advanceFromNetwork(reason: reason);
       if (pf) unawaited(eng.triggerPrefetch());
-      if (mounted) await HapticFeedback.mediumImpact();
     } finally {
       if (mounted) setState(() => _pullBusy = false);
     }
