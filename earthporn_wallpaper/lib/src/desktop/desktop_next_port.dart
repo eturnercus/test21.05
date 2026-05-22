@@ -44,16 +44,14 @@ class DesktopNextPort {
     }
   }
 
-  /// If the singleton port is busy, optionally signal the running instance and exit.
+  /// Second instance: optionally ping primary, then always [exit].
+  ///
+  /// [tryBindPrimary] already returned null (port busy or bind error); do not
+  /// try to bind again — a rare race could grab the port and return here
+  /// without starting the UI.
   static Future<void> secondaryInstanceMaybeSignalAndExit() async {
     if (kIsWeb) return;
     if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) return;
-    try {
-      await ServerSocket.bind(InternetAddress.loopbackIPv4, kPort);
-      return;
-    } on SocketException {
-      // Another instance holds the port.
-    }
     final wantsNext = Platform.executableArguments.contains('--earthporn-next');
     if (wantsNext) {
       pingPrimaryInMicrotask();
